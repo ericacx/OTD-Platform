@@ -1,0 +1,7 @@
+{
+  "GREET_MORNING": "早上好，{{name}}",
+  "GREET_AFTERNOON": "下午好，{{name}}",
+  "GREET_EVENING": "晚上好，{{name}}",
+  "EMPTY_TITLE": "今日待办建设中",
+  "EMPTY_DESC": "待办、重点关注与交期提醒将在 M00 模块上线后显示在这里"
+}

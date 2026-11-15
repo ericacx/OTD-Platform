@@ -1,0 +1,22 @@
+{
+  "CUSTOMERS_TITLE": "Customers",
+  "CUSTOMER_NEW": "New customer",
+  "CUSTOMER_EDIT": "Edit customer",
+  "CUSTOMER_SEARCH": "Search code / name",
+  "CODE": "Code",
+  "CODE_RULE": "2–8 uppercase letters or digits",
+  "NAME": "Name",
+  "NAME_EN": "English name",
+  "SETTLEMENT_ENTITY": "Settlement entity",
+  "PAYMENT_TERMS": "Payment terms (days)",
+  "TERMS_DAYS": "Net {{days}}",
+  "CURRENCY": "Currency",
+  "CONTACT": "Contact",
+  "CONTACT_EMAIL": "Contact email",
+  "AI_ALLOWED": "AI allowed",
+  "STATUS": "Status",
+  "ACTIVE": "Active",
+  "DISABLED": "Disabled",
+  "YES": "Yes",
+  "NO": "No"
+}

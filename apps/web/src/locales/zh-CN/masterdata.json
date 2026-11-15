@@ -1,0 +1,22 @@
+{
+  "CUSTOMERS_TITLE": "客户",
+  "CUSTOMER_NEW": "新建客户",
+  "CUSTOMER_EDIT": "编辑客户",
+  "CUSTOMER_SEARCH": "搜索简码 / 名称",
+  "CODE": "客户简码",
+  "CODE_RULE": "2–8 位大写字母或数字",
+  "NAME": "客户名称",
+  "NAME_EN": "英文名称",
+  "SETTLEMENT_ENTITY": "结算主体",
+  "PAYMENT_TERMS": "账期（天）",
+  "TERMS_DAYS": "月结 {{days}} 天",
+  "CURRENCY": "币种",
+  "CONTACT": "对接人",
+  "CONTACT_EMAIL": "对接人邮箱",
+  "AI_ALLOWED": "允许 AI 处理",
+  "STATUS": "状态",
+  "ACTIVE": "启用",
+  "DISABLED": "停用",
+  "YES": "是",
+  "NO": "否"
+}

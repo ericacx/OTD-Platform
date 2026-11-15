@@ -1,0 +1,7 @@
+{
+  "GREET_MORNING": "Good morning, {{name}}",
+  "GREET_AFTERNOON": "Good afternoon, {{name}}",
+  "GREET_EVENING": "Good evening, {{name}}",
+  "EMPTY_TITLE": "To-dos coming soon",
+  "EMPTY_DESC": "To-dos, focus items and due reminders will appear here once module M00 ships"
+}
