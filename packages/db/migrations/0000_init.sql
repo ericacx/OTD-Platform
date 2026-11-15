@@ -1406,6 +1406,7 @@ CREATE TABLE "ai_conversations" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"user_id" uuid NOT NULL,
 	"title" text NOT NULL,
+	"message_count" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -1413,9 +1414,25 @@ CREATE TABLE "ai_conversations" (
 CREATE TABLE "ai_messages" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"conversation_id" uuid NOT NULL,
+	"seq" integer DEFAULT 0 NOT NULL,
 	"role" text NOT NULL,
 	"content" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "ai_proposals" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"user_id" uuid NOT NULL,
+	"conversation_id" uuid NOT NULL,
+	"message_id" uuid,
+	"kind" text NOT NULL,
+	"payload" jsonb NOT NULL,
+	"preview" jsonb NOT NULL,
+	"status" text DEFAULT 'PENDING' NOT NULL,
+	"result" jsonb,
+	"decided_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"version" integer DEFAULT 1 NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "ai_usage" (
@@ -1435,6 +1452,11 @@ CREATE TABLE "diagnoses" (
 	"period" text NOT NULL,
 	"summary" text NOT NULL,
 	"items" jsonb NOT NULL,
+	"signals" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"title" text,
+	"scope_label" text,
+	"as_of" text,
+	"generated_by" uuid,
 	"model" text,
 	"generated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -1480,7 +1502,24 @@ CREATE TABLE "patrol_hits" (
 	"fingerprint" text NOT NULL,
 	"first_seen_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"last_seen_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"closed_at" timestamp with time zone
+	"closed_at" timestamp with time zone,
+	"doc_type" text,
+	"doc_id" text,
+	"link" text,
+	"order_id" uuid,
+	"owner_id" uuid,
+	"org_id" uuid,
+	"assignee_role" text,
+	"first_run_id" uuid,
+	"close_reason" text,
+	"handle_note" text,
+	"handled_by" uuid,
+	"handled_at" timestamp with time zone,
+	"silenced_until" timestamp with time zone,
+	"todo_id" uuid,
+	"todo_owned" boolean DEFAULT false NOT NULL,
+	"escalated_at" timestamp with time zone,
+	"version" integer DEFAULT 1 NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "patrol_rules" (
@@ -1518,6 +1557,10 @@ CREATE TABLE "patrol_runs" (
 	"red_count" integer DEFAULT 0 NOT NULL,
 	"yellow_count" integer DEFAULT 0 NOT NULL,
 	"green_modules" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"scanned_modules" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"rule_stats" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"status" text DEFAULT 'DONE' NOT NULL,
+	"error" text,
 	"triggered_by" uuid,
 	CONSTRAINT "patrol_runs_docNo_unique" UNIQUE("doc_no")
 );
@@ -1757,13 +1800,17 @@ CREATE INDEX "shipments_order_id_index" ON "shipments" USING btree ("order_id");
 CREATE INDEX "shipments_status_index" ON "shipments" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "shipments_owner_id_org_id_customer_id_index" ON "shipments" USING btree ("owner_id","org_id","customer_id");--> statement-breakpoint
 CREATE INDEX "ai_conversations_user_id_updated_at_index" ON "ai_conversations" USING btree ("user_id","updated_at");--> statement-breakpoint
-CREATE INDEX "ai_messages_conversation_id_index" ON "ai_messages" USING btree ("conversation_id");--> statement-breakpoint
+CREATE INDEX "ai_messages_conversation_id_seq_index" ON "ai_messages" USING btree ("conversation_id","seq");--> statement-breakpoint
+CREATE INDEX "ai_proposals_user_id_status_index" ON "ai_proposals" USING btree ("user_id","status");--> statement-breakpoint
+CREATE INDEX "ai_proposals_conversation_id_index" ON "ai_proposals" USING btree ("conversation_id");--> statement-breakpoint
 CREATE INDEX "ai_usage_user_id_created_at_index" ON "ai_usage" USING btree ("user_id","created_at");--> statement-breakpoint
 CREATE INDEX "diagnoses_board_scope_key_period_index" ON "diagnoses" USING btree ("board","scope_key","period");--> statement-breakpoint
 CREATE UNIQUE INDEX "metric_snapshots_metric_scope_key_period_index" ON "metric_snapshots" USING btree ("metric","scope_key","period");--> statement-breakpoint
 CREATE INDEX "node_state_snapshots_node_code_state_index" ON "node_state_snapshots" USING btree ("node_code","state");--> statement-breakpoint
 CREATE INDEX "patrol_hits_status_light_index" ON "patrol_hits" USING btree ("status","light");--> statement-breakpoint
 CREATE INDEX "patrol_hits_fingerprint_index" ON "patrol_hits" USING btree ("fingerprint");--> statement-breakpoint
+CREATE INDEX "patrol_hits_rule_id_status_index" ON "patrol_hits" USING btree ("rule_id","status");--> statement-breakpoint
+CREATE INDEX "patrol_hits_order_id_index" ON "patrol_hits" USING btree ("order_id");--> statement-breakpoint
 CREATE INDEX "sync_batches_run_id_index" ON "sync_batches" USING btree ("run_id");--> statement-breakpoint
 CREATE INDEX "sync_records_task_id_status_index" ON "sync_records" USING btree ("task_id","status");--> statement-breakpoint
 CREATE INDEX "sync_records_status_next_retry_at_index" ON "sync_records" USING btree ("status","next_retry_at");--> statement-breakpoint

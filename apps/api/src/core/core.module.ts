@@ -1,5 +1,5 @@
 import { Global, Logger, Module, type OnApplicationShutdown, Inject } from "@nestjs/common";
-import { type Database, type DatabaseHandle, createDatabase } from "@otd/db";
+import { type Database, type DatabaseHandle, applySchemaDirect, createDatabase } from "@otd/db";
 import { seedAll } from "@otd/db/seed";
 import { sql } from "drizzle-orm";
 import { AccessService } from "./access/access.service.js";
@@ -22,7 +22,14 @@ export const DB_HANDLE = Symbol("DB_HANDLE");
 export async function openDatabase(env: Env): Promise<DatabaseHandle> {
   const handle = createDatabase(env.DATABASE_URL);
   const logger = new Logger("Database");
-  if (handle.kind === "pglite" || env.AUTO_MIGRATE) {
+  const hasTables = async () => {
+    const res = await handle.db.execute(sql`select count(*)::int as n from information_schema.tables where table_schema = 'public' and table_name = 'users'`);
+    return Number((res as unknown as { rows: { n: number }[] }).rows[0]?.n ?? 0) > 0;
+  };
+  if (handle.kind === "pglite" && env.NODE_ENV === "development" && !(await hasTables())) {
+    await applySchemaDirect(handle.db);
+    logger.log("created pglite schema directly from the current table definitions");
+  } else if (handle.kind === "pglite" || env.AUTO_MIGRATE) {
     await handle.migrate();
     logger.log(`migrated ${handle.kind}`);
   }

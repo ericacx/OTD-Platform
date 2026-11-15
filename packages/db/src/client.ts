@@ -2,7 +2,7 @@ import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
-import type { ExtractTablesWithRelations } from "drizzle-orm";
+import { type ExtractTablesWithRelations, sql } from "drizzle-orm";
 import { drizzle as drizzleNodePg } from "drizzle-orm/node-postgres";
 import { migrate as migrateNodePg } from "drizzle-orm/node-postgres/migrator";
 import type { PgDatabase, PgQueryResultHKT, PgTransaction } from "drizzle-orm/pg-core";
@@ -17,6 +17,13 @@ export type Tx = PgTransaction<PgQueryResultHKT, Schema, ExtractTablesWithRelati
 export type DbOrTx = Database | Tx;
 
 export type DatabaseHandle = { db: Database; kind: "postgres" | "pglite"; close: () => Promise<void>; migrate: () => Promise<void> };
+
+export async function applySchemaDirect(db: Database): Promise<void> {
+  const { generateDrizzleJson, generateMigration } = await import("drizzle-kit/api");
+  const empty = generateDrizzleJson({}, undefined, ["public"], "snake_case");
+  const current = generateDrizzleJson(schema, empty.id, ["public"], "snake_case");
+  for (const statement of await generateMigration(empty, current)) await db.execute(sql.raw(statement));
+}
 
 export const migrationsFolder = join(dirname(fileURLToPath(import.meta.url)), "../migrations");
 
