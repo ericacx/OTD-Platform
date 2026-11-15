@@ -214,7 +214,7 @@ export async function seedReference(db: Database): Promise<{ users: Record<strin
   const machines: [string, string, number, number][] = [
     ["DC", "96N", 184, 174.6], ["DC", "120N", 253, 192.8], ["DC", "144N", 276, 188.5], ["DC", "200N", 143, 154.6],
     ["VN", "96N", 141, 133.7], ["VN", "120N", 184, 155.6], ["VN", "144N", 209, 141.8], ["VN", "200N", 106, 122.2],
-    ["NH", "96N", 92, 175.9], ["NH", "120N", 127, 202.1], ["NH", "144N", 140, 185.1],
+    ["NH", "96N", 92, 175.9], ["NH", "120N", 127, 202.1], ["NH", "144N", 140, 185.1], ["NH", "168N", 96, 168.4],
   ];
   for (const [base, needle, count, daily] of machines) {
     await db.insert(t.baseMachines).values({ baseId: baseIds[base]!, needleTypeId: needleIds[needle]!, machineCount: count, dailyOutputPerMachine: daily });
