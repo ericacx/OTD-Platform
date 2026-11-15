@@ -187,6 +187,16 @@ export const STATUS_MACHINES = {
       REWORK: ["INSPECTED"],
     },
   }),
+  booking: machine({
+    label: { zh: "订舱", en: "Booking" },
+    initial: "PENDING_CARRIER",
+    statuses: {
+      PENDING_CARRIER: s("待船司确认", "Awaiting carrier", "warning"),
+      CONFIRMED: s("订舱确认", "Confirmed", "success"),
+      CANCELLED: s("已取消", "Cancelled", "neutral"),
+    },
+    transitions: { PENDING_CARRIER: ["CONFIRMED", "CANCELLED"], CONFIRMED: ["CANCELLED"] },
+  }),
   shipment: machine({
     label: { zh: "出货单", en: "Shipment" },
     initial: "BOOKED",

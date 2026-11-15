@@ -117,7 +117,7 @@ export async function seedFlowDemo(ctx: SeedContext): Promise<void> {
       kind: "RELEASE",
       name: "验货放行默认规则",
       nameEn: "Release defaults",
-      params: { releaseDaysBeforeExFactory: 15, sameFactorySameDayLimit: 6, mergeReport: false, requireFullColorSize: true, allowBatchRelease: true },
+      params: { releaseDaysBeforeExFactory: 15, sameFactorySameDayLimit: 5, mergeReport: false, requireFullColorSize: true, allowBatchRelease: true },
       description: "G2 放行与验货排期",
       createdBy: admin,
     },
