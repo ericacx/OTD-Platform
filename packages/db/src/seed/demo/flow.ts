@@ -108,7 +108,7 @@ export async function seedFlowDemo(ctx: SeedContext): Promise<void> {
       kind: "PO_REVIEW",
       name: "PO 复核默认规则",
       nameEn: "PO review defaults",
-      params: { unitPriceTolerance: 0, quantityTolerancePct: 0, requireStyleLinked: true, requireDueDateFeasible: true, checkPoVsBd: false, requireTradeTermMatch: true },
+      params: { minLeadDays: 30, priceTolerancePct: 3, quantityTolerancePct: 0, requireStyleLinked: true, requireDueDateFeasible: true, checkPoVsBd: false, requireTradeTermMatch: true },
       description: "N06 PO 复核：单价、数量、款号关联、交期可行性、贸易术语",
       createdBy: admin,
     },
