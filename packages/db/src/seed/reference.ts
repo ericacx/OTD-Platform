@@ -276,7 +276,7 @@ export async function seedReference(db: Database): Promise<{ users: Record<strin
   }
 
   await db.insert(t.quoteStrategies).values([
-    { code: "PS-001", name: "标准报价", nameEn: "Standard", method: "MARKUP", lossRate: 0.2, overheadRate: 0, markupRate: 0.2, targetMargin: 0.18, guardrail: 0.12, lockedFx: 6.72, moq: 10000, smallOrderUplift: 0.5, skuTiers: [] },
+    { code: "PS-001", name: "标准报价", nameEn: "Standard", method: "MARKUP", lossRate: 0.2, overheadRate: 0, markupRate: 0.2, targetMargin: 0.18, guardrail: 0.12, lockedFx: 6.72, moq: 2000, smallOrderUplift: 0.5, skuTiers: [] },
     { code: "PS-002", name: "大单进取 · 让利换量", nameEn: "Volume push", method: "MARGIN", lossRate: 0.2, overheadRate: 0, markupRate: 0.2, targetMargin: 0.18, guardrail: 0.12, lockedFx: 6.72, moq: 10000, smallOrderUplift: 0.5, skuTiers: [{ minAmount: 500000, discount: 0.01 }, { minAmount: 1000000, discount: 0.02 }, { minAmount: 3000000, discount: 0.04 }, { minAmount: 5000000, discount: 0.05 }] },
     { code: "PS-003", name: "新客开拓", nameEn: "New customer", method: "MARGIN", lossRate: 0.2, overheadRate: 0.02, markupRate: 0.15, targetMargin: 0.15, guardrail: 0.1, lockedFx: 6.72, moq: 5000, smallOrderUplift: 0.3, skuTiers: [] },
   ]);
