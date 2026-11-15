@@ -1,0 +1,50 @@
+{
+  "name": "@otd/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "@otd/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "@otd/source": "./src/testing.ts",
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    },
+    "./seed": {
+      "@otd/source": "./src/seed/index.ts",
+      "types": "./dist/seed/index.d.ts",
+      "default": "./dist/seed/index.js"
+    }
+  },
+  "files": ["dist", "migrations"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "generate": "drizzle-kit generate",
+    "migrate": "tsx --conditions=@otd/source src/cli/migrate.ts",
+    "seed": "tsx --conditions=@otd/source src/cli/seed.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "catalog:",
+    "@node-rs/argon2": "catalog:",
+    "@otd/shared": "workspace:*",
+    "drizzle-orm": "catalog:",
+    "pg": "catalog:"
+  },
+  "devDependencies": {
+    "@otd/config": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/pg": "catalog:",
+    "drizzle-kit": "catalog:",
+    "eslint": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

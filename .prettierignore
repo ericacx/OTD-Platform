@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+.turbo
+.data
+pnpm-lock.yaml
+packages/db/migrations
+产品文档
+apps/web/public/mockServiceWorker.js

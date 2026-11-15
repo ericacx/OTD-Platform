@@ -1,0 +1,46 @@
+{
+  "name": "@otd/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "node --watch --conditions=@otd/source --env-file-if-exists=.env --import @swc-node/register/esm-register src/main.ts",
+    "dev:worker": "node --watch --conditions=@otd/source --env-file-if-exists=.env --import @swc-node/register/esm-register src/worker.ts",
+    "start": "node dist/main.js",
+    "start:worker": "node dist/worker.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "catalog:",
+    "@fastify/multipart": "catalog:",
+    "@nestjs/common": "catalog:",
+    "@nestjs/core": "catalog:",
+    "@nestjs/platform-fastify": "catalog:",
+    "@node-rs/argon2": "catalog:",
+    "@otd/contracts": "workspace:*",
+    "@otd/db": "workspace:*",
+    "@otd/shared": "workspace:*",
+    "drizzle-orm": "catalog:",
+    "exceljs": "catalog:",
+    "fastify": "catalog:",
+    "jose": "catalog:",
+    "reflect-metadata": "catalog:",
+    "rxjs": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "catalog:",
+    "@otd/config": "workspace:*",
+    "@swc-node/register": "1.12.1",
+    "@swc/core": "catalog:",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "unplugin-swc": "catalog:",
+    "vitest": "catalog:"
+  }
+}

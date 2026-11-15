@@ -1,0 +1,28 @@
+{
+  "name": "otd-platform",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.2",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "turbo run dev --filter=@otd/api --filter=@otd/web",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:generate": "pnpm --filter @otd/db generate",
+    "db:migrate": "pnpm --filter @otd/db migrate",
+    "db:seed": "pnpm --filter @otd/db seed",
+    "infra:up": "docker compose -f deploy/docker-compose.dev.yml up -d",
+    "infra:down": "docker compose -f deploy/docker-compose.dev.yml down"
+  },
+  "devDependencies": {
+    "prettier": "catalog:",
+    "turbo": "catalog:",
+    "typescript": "catalog:"
+  }
+}

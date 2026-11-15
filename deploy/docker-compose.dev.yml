@@ -1,0 +1,30 @@
+name: otd-dev
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: otd
+      POSTGRES_PASSWORD: otd
+      POSTGRES_DB: otd
+    ports:
+      - "55432:5432"
+    volumes:
+      - otd-pg:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U otd -d otd"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:8
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "56379:6379"
+    volumes:
+      - otd-redis:/data
+
+volumes:
+  otd-pg:
+  otd-redis:
