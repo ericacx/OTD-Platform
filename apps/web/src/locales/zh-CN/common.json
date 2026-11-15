@@ -95,5 +95,8 @@
   "TL_AVG": "平均办结",
   "TL_SLOW": "慢于平均",
   "TL_GO": "去处理",
-  "PGTOT": "共 {{count}} 条"
+  "PGTOT": "共 {{count}} 条",
+  "NOTIF_TITLE": "通知",
+  "NOTIF_EMPTY": "暂无通知",
+  "NOTIF_READ_ALL": "全部已读"
 }

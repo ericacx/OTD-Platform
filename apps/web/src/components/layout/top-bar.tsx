@@ -16,6 +16,7 @@ export interface TopBarProps {
   locale: AppLocale;
   unreadCount?: number;
   commandSlot?: ReactNode;
+  notificationSlot?: ReactNode;
   onToggleSidebar: () => void;
   onOpenMobileNav: () => void;
   onLocaleChange: (locale: AppLocale) => void;
@@ -30,6 +31,7 @@ export function TopBar({
   locale,
   unreadCount = 0,
   commandSlot,
+  notificationSlot,
   onToggleSidebar,
   onOpenMobileNav,
   onLocaleChange,
@@ -77,14 +79,16 @@ export function TopBar({
       </form>
       <div className="ml-auto flex items-center gap-1.5 sm:gap-3">
         {commandSlot}
-        <Button aria-label={t("TOP_NOTIFY")} className="relative" size="icon" variant="ghost">
-          <Bell aria-hidden="true" className="size-4" />
-          {unreadCount > 0 ? (
-            <span className="absolute -top-0.5 -right-0.5 min-w-4 rounded-full bg-primary px-1 text-[10px] leading-4 font-semibold text-primary-foreground">
-              {unreadCount > 99 ? "99+" : unreadCount}
-            </span>
-          ) : null}
-        </Button>
+        {notificationSlot ?? (
+          <Button aria-label={t("TOP_NOTIFY")} className="relative" size="icon" variant="ghost">
+            <Bell aria-hidden="true" className="size-4" />
+            {unreadCount > 0 ? (
+              <span className="absolute -top-0.5 -right-0.5 min-w-4 rounded-full bg-primary px-1 text-[10px] leading-4 font-semibold text-primary-foreground">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            ) : null}
+          </Button>
+        )}
         <LocaleSwitcher locale={locale} onLocaleChange={onLocaleChange} />
         {user ? (
           <UserMenu

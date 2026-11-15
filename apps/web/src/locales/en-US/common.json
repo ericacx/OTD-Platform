@@ -95,5 +95,8 @@
   "TL_AVG": "Average",
   "TL_SLOW": "Slower than average",
   "TL_GO": "Open",
-  "PGTOT": "{{count}} total"
+  "PGTOT": "{{count}} total",
+  "NOTIF_TITLE": "Notifications",
+  "NOTIF_EMPTY": "No notifications",
+  "NOTIF_READ_ALL": "Mark all read"
 }

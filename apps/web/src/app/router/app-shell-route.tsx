@@ -9,6 +9,7 @@ import { AssistantFab } from "@/components/layout/assistant-fab";
 import { SettingsDialog } from "@/components/layout/settings-dialog";
 import { useUpdatePreferencesMutation } from "@/features/auth/auth.mutations";
 import { ChangePasswordDialog } from "@/features/auth/components/change-password-dialog";
+import { NotificationBell } from "@/features/notification/components/notification-bell";
 import { supportedLocales, type AppLocale } from "@/lib/i18n/local-backend";
 import { isHexColor, isThemeId } from "@/lib/theme/theme";
 import { selectPreferencesSnapshot, usePreferencesStore, type PreferencesSnapshot } from "@/stores/preferences.store";
@@ -94,6 +95,7 @@ export function AppShellRoute() {
       locale={isSupportedLocale(i18n.language) ? i18n.language : prefs.locale}
       mobileNavOpen={mobileNavOpen}
       navItems={navItems}
+      notificationSlot={<NotificationBell />}
       overlay={
         <>
           {assistantVisible ? (

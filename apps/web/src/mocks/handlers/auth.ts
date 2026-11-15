@@ -56,4 +56,8 @@ export const authHandlers = [
   }),
 
   http.post("*/me/password", () => HttpResponse.json(envelope(null))),
+
+  http.get("*/notifications", () => HttpResponse.json(envelope({ items: [], unread: 0 }))),
+  http.post("*/notifications/read-all", () => HttpResponse.json(envelope(null))),
+  http.post("*/notifications/:id/read", () => HttpResponse.json(envelope(null))),
 ];
