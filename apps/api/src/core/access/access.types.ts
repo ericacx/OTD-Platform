@@ -9,9 +9,13 @@ export type AccessContext = {
   permissions: ReadonlySet<string>;
   dataScope: { mode: DataScope; orgIds: string[] };
   customerScope: { mode: "ALL" } | { mode: "LIST"; customerIds: string[] };
+  orgFunction: string;
+  functional: boolean;
   sessionId?: string;
   system?: boolean;
 };
+
+export const NON_FUNCTIONAL_ORG = new Set(["SALES", "MANAGEMENT"]);
 
 export function systemContext(): AccessContext {
   return {
@@ -23,6 +27,8 @@ export function systemContext(): AccessContext {
     permissions: new Set(["*"]),
     dataScope: { mode: "ALL", orgIds: [] },
     customerScope: { mode: "ALL" },
+    orgFunction: "MANAGEMENT",
+    functional: false,
     system: true,
   };
 }

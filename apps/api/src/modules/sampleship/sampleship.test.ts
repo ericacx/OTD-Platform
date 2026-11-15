@@ -57,6 +57,23 @@ describe("sample shipments (business module reference)", () => {
     expect((await other.get("/sample-shipments")).body.data.total).toBe(0);
     const manager = await t.as("manager");
     expect((await manager.get(`/sample-shipments/${created.id}`)).status).toBe(200);
+    const tech = await t.as("tech");
+    expect((await tech.get(`/sample-shipments/${created.id}`)).status).toBe(200);
+    expect((await tech.get("/sample-shipments")).body.data.total).toBeGreaterThanOrEqual(1);
+  });
+
+  it("keeps functional-department visibility within customer scope only", async () => {
+    const { AccessService } = await import("../../core/access/access.service.js");
+    const access = t.app.get(AccessService);
+    const tech = await t.as("tech");
+    const sales = await t.as("sales");
+    const techCtx = (await access.load(tech.userId))!;
+    const salesCtx = (await access.load(sales.userId))!;
+    expect(techCtx.functional).toBe(true);
+    expect(techCtx.orgFunction).toBe("TECH");
+    expect(salesCtx.functional).toBe(false);
+    const manager = (await access.load((await t.as("manager")).userId))!;
+    expect(manager.functional).toBe(false);
   });
 
   it("rejects styles the user cannot see", async () => {

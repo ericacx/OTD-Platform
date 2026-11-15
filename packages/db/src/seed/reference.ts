@@ -7,20 +7,20 @@ import * as t from "../schema/index.js";
 export const DEMO_PASSWORD = "otd2026demo";
 
 export const ORG_TREE = [
-  { code: "ORG001", name: "OTD 集团", nameEn: "OTD Group", type: "GROUP", parent: null },
-  { code: "ORG002", name: "棉袜事业部", nameEn: "Cotton Socks Division", type: "DIVISION", parent: "ORG001" },
-  { code: "ORG003", name: "业务一部", nameEn: "Sales Dept 1", type: "DEPARTMENT", parent: "ORG002" },
-  { code: "ORG004", name: "业务二部", nameEn: "Sales Dept 2", type: "DEPARTMENT", parent: "ORG002" },
-  { code: "ORG005", name: "无缝事业部", nameEn: "Seamless Division", type: "DIVISION", parent: "ORG001" },
-  { code: "ORG006", name: "业务三部", nameEn: "Sales Dept 3", type: "DEPARTMENT", parent: "ORG005" },
-  { code: "ORG007", name: "技术部", nameEn: "Technical", type: "DEPARTMENT", parent: "ORG001" },
-  { code: "ORG008", name: "品质部", nameEn: "Quality", type: "DEPARTMENT", parent: "ORG001" },
-  { code: "ORG009", name: "计划部", nameEn: "Planning", type: "DEPARTMENT", parent: "ORG001" },
-  { code: "ORG010", name: "采购部", nameEn: "Procurement", type: "DEPARTMENT", parent: "ORG001" },
-  { code: "ORG011", name: "关务部", nameEn: "Customs", type: "DEPARTMENT", parent: "ORG001" },
-  { code: "ORG012", name: "财务部", nameEn: "Finance", type: "DEPARTMENT", parent: "ORG001" },
-  { code: "ORG013", name: "生产部", nameEn: "Production", type: "DEPARTMENT", parent: "ORG001" },
-  { code: "ORG014", name: "信息部", nameEn: "IT", type: "DEPARTMENT", parent: "ORG001" },
+  { code: "ORG001", name: "OTD 集团", nameEn: "OTD Group", type: "GROUP", fn: "MANAGEMENT", parent: null },
+  { code: "ORG002", name: "棉袜事业部", nameEn: "Cotton Socks Division", type: "DIVISION", fn: "SALES", parent: "ORG001" },
+  { code: "ORG003", name: "业务一部", nameEn: "Sales Dept 1", type: "DEPARTMENT", fn: "SALES", parent: "ORG002" },
+  { code: "ORG004", name: "业务二部", nameEn: "Sales Dept 2", type: "DEPARTMENT", fn: "SALES", parent: "ORG002" },
+  { code: "ORG005", name: "无缝事业部", nameEn: "Seamless Division", type: "DIVISION", fn: "SALES", parent: "ORG001" },
+  { code: "ORG006", name: "业务三部", nameEn: "Sales Dept 3", type: "DEPARTMENT", fn: "SALES", parent: "ORG005" },
+  { code: "ORG007", name: "技术部", nameEn: "Technical", type: "DEPARTMENT", fn: "TECH", parent: "ORG001" },
+  { code: "ORG008", name: "品质部", nameEn: "Quality", type: "DEPARTMENT", fn: "QUALITY", parent: "ORG001" },
+  { code: "ORG009", name: "计划部", nameEn: "Planning", type: "DEPARTMENT", fn: "PLANNING", parent: "ORG001" },
+  { code: "ORG010", name: "采购部", nameEn: "Procurement", type: "DEPARTMENT", fn: "PROCUREMENT", parent: "ORG001" },
+  { code: "ORG011", name: "关务部", nameEn: "Customs", type: "DEPARTMENT", fn: "CUSTOMS", parent: "ORG001" },
+  { code: "ORG012", name: "财务部", nameEn: "Finance", type: "DEPARTMENT", fn: "FINANCE", parent: "ORG001" },
+  { code: "ORG013", name: "生产部", nameEn: "Production", type: "DEPARTMENT", fn: "PRODUCTION", parent: "ORG001" },
+  { code: "ORG014", name: "信息部", nameEn: "IT", type: "DEPARTMENT", fn: "IT", parent: "ORG001" },
 ] as const;
 
 export const DEMO_USERS = [
@@ -152,7 +152,7 @@ export async function seedReference(db: Database): Promise<{ users: Record<strin
     const idv = uuidv7();
     orgIds[o.code] = idv;
     const parentPath = o.parent ? (await pathOf(o.parent)) : "/";
-    await db.insert(t.orgs).values({ id: idv, code: o.code, name: o.name, nameEn: o.nameEn, type: o.type, parentId: o.parent ? orgIds[o.parent]! : null, path: `${parentPath}${idv}/`, sort: i });
+    await db.insert(t.orgs).values({ id: idv, code: o.code, name: o.name, nameEn: o.nameEn, type: o.type, function: o.fn, parentId: o.parent ? orgIds[o.parent]! : null, path: `${parentPath}${idv}/`, sort: i });
   }
   async function pathOf(code: string): Promise<string> {
     const parent = ORG_TREE.find((o) => o.code === code)!;

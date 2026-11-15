@@ -3,7 +3,7 @@ import { type Database, orgs, roleCustomers, rolePermissions, roles, userRoles, 
 import type { DataScope } from "@otd/shared";
 import { and, eq, inArray, like } from "drizzle-orm";
 import { DB } from "../tokens.js";
-import type { AccessContext } from "./access.types.js";
+import { type AccessContext, NON_FUNCTIONAL_ORG } from "./access.types.js";
 
 const SCOPE_RANK: Record<DataScope, number> = { SELF: 0, ORG: 1, ORG_AND_CHILDREN: 2, ALL: 3 };
 const TTL_MS = 60_000;
@@ -34,11 +34,13 @@ export class AccessService {
     let mode: DataScope = "SELF";
     for (const r of roleRows) if (SCOPE_RANK[r.dataScope as DataScope] > SCOPE_RANK[mode]) mode = r.dataScope as DataScope;
     let orgIds: string[] = [];
+    const own = (await this.db.select({ path: orgs.path, fn: orgs.function }).from(orgs).where(eq(orgs.id, user.primaryOrgId)))[0];
     if (mode === "ORG") orgIds = [user.primaryOrgId];
     if (mode === "ORG_AND_CHILDREN") {
-      const own = (await this.db.select({ path: orgs.path }).from(orgs).where(eq(orgs.id, user.primaryOrgId)))[0];
       orgIds = own ? (await this.db.select({ id: orgs.id }).from(orgs).where(like(orgs.path, `${own.path}%`))).map((o) => o.id) : [user.primaryOrgId];
     }
+    const orgFunction = own?.fn ?? "SALES";
+    const functional = (mode === "ORG" || mode === "ORG_AND_CHILDREN") && !NON_FUNCTIONAL_ORG.has(orgFunction);
     const allCustomers = roleRows.some((r) => r.allCustomers);
     const customerIds = allCustomers || !roleIds.length ? [] : [...new Set((await this.db.select({ c: roleCustomers.customerId }).from(roleCustomers).where(inArray(roleCustomers.roleId, roleIds))).map((r) => r.c))];
     const ctx: Omit<AccessContext, "sessionId"> = {
@@ -50,6 +52,8 @@ export class AccessService {
       permissions: new Set(perms.map((p) => p.p)),
       dataScope: { mode, orgIds },
       customerScope: allCustomers ? { mode: "ALL" } : { mode: "LIST", customerIds },
+      orgFunction,
+      functional,
     };
     this.cache.set(userId, { ctx, expires: Date.now() + TTL_MS });
     return ctx;

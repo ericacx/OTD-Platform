@@ -9,6 +9,7 @@ export const orgs = pgTable(
     name: text().notNull(),
     nameEn: text(),
     type: text().notNull(),
+    function: text().notNull().default("SALES"),
     parentId: uuid(),
     path: text().notNull(),
     leaderId: uuid(),

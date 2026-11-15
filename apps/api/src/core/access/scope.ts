@@ -9,7 +9,7 @@ export function scoped(table: OwnedColumns, ctx: AccessContext): SQL {
   if (ctx.system) return sql`true`;
   const conditions: SQL[] = [];
   if (ctx.dataScope.mode === "SELF") conditions.push(eq(table.ownerId, ctx.userId));
-  if (ctx.dataScope.mode === "ORG" || ctx.dataScope.mode === "ORG_AND_CHILDREN") {
+  if (!ctx.functional && (ctx.dataScope.mode === "ORG" || ctx.dataScope.mode === "ORG_AND_CHILDREN")) {
     conditions.push(ctx.dataScope.orgIds.length ? inArray(table.orgId, ctx.dataScope.orgIds) : sql`false`);
   }
   if (ctx.customerScope.mode === "LIST") {
@@ -27,6 +27,7 @@ export function canSeeRow(ctx: AccessContext, row: { ownerId: string; orgId: str
   if (ctx.system) return true;
   if (!canSeeCustomer(ctx, row.customerId)) return false;
   if (ctx.dataScope.mode === "SELF") return row.ownerId === ctx.userId;
+  if (ctx.functional) return true;
   if (ctx.dataScope.mode === "ORG" || ctx.dataScope.mode === "ORG_AND_CHILDREN") return ctx.dataScope.orgIds.includes(row.orgId);
   return true;
 }
