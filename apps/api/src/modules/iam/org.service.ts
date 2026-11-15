@@ -31,6 +31,7 @@ export class OrgService {
       name: o.name,
       nameEn: o.nameEn,
       type: o.type as OrgNode["type"],
+      function: o.function as OrgNode["function"],
       parentId: o.parentId,
       leaderId: o.leaderId,
       leaderName: o.leaderId ? (names.get(o.leaderId) ?? null) : null,
@@ -52,7 +53,7 @@ export class OrgService {
     const parent = input.parentId ? assertFound((await this.db.select().from(orgs).where(eq(orgs.id, input.parentId)))[0]) : null;
     const id = await this.db.transaction(async (tx) => {
       const code = await this.numbering.next("org", tx);
-      const row = (await tx.insert(orgs).values({ code, name: input.name, nameEn: input.nameEn ?? null, type: input.type, parentId: parent?.id ?? null, path: "/", leaderId: input.leaderId ?? null, description: input.description ?? null, status: input.status, createdBy: ctx.userId }).returning())[0]!;
+      const row = (await tx.insert(orgs).values({ code, name: input.name, nameEn: input.nameEn ?? null, type: input.type, function: input.function, parentId: parent?.id ?? null, path: "/", leaderId: input.leaderId ?? null, description: input.description ?? null, status: input.status, createdBy: ctx.userId }).returning())[0]!;
       await tx.update(orgs).set({ path: `${parent?.path ?? "/"}${row.id}/` }).where(eq(orgs.id, row.id));
       await this.audit.log(ctx, { action: "iam.org.create", objectType: "org", objectId: row.id, docNo: code }, tx);
       return row.id;
@@ -75,7 +76,7 @@ export class OrgService {
           await tx.update(orgs).set({ path: path + o.path.slice(before.path.length) }).where(eq(orgs.id, o.id));
         }
       }
-      const patch = { name: input.name, nameEn: input.nameEn ?? null, type: input.type, parentId: input.parentId ?? null, leaderId: input.leaderId ?? null, description: input.description ?? null, status: input.status };
+      const patch = { name: input.name, nameEn: input.nameEn ?? null, type: input.type, function: input.function, parentId: input.parentId ?? null, leaderId: input.leaderId ?? null, description: input.description ?? null, status: input.status };
       await tx.update(orgs).set({ ...patch, path, version: before.version + 1, updatedBy: ctx.userId }).where(eq(orgs.id, id));
       await this.audit.log(ctx, { action: "iam.org.update", objectType: "org", objectId: id, docNo: before.code, diff: diffOf(before, patch) }, tx);
     });

@@ -10,6 +10,7 @@ export const iamErrors = defineErrors({
 });
 
 export const orgTypeSchema = z.enum(["GROUP", "DIVISION", "DEPARTMENT", "BASE"]);
+export const orgFunctionSchema = z.enum(["SALES", "MANAGEMENT", "TECH", "QUALITY", "PLANNING", "PROCUREMENT", "CUSTOMS", "FINANCE", "PRODUCTION", "IT"]);
 
 export const orgNodeSchema = z.object({
   id: z.string(),
@@ -17,6 +18,7 @@ export const orgNodeSchema = z.object({
   name: z.string(),
   nameEn: z.string().nullable(),
   type: orgTypeSchema,
+  function: orgFunctionSchema,
   parentId: z.string().nullable(),
   leaderId: z.string().nullable(),
   leaderName: z.string().nullable(),
@@ -33,6 +35,7 @@ export const orgUpsertSchema = z.object({
   name: z.string().trim().min(1).max(60),
   nameEn: z.string().trim().max(120).nullable().optional(),
   type: orgTypeSchema,
+  function: orgFunctionSchema.default("SALES"),
   parentId: z.uuid().nullable(),
   leaderId: z.uuid().nullable().optional(),
   description: z.string().max(500).nullable().optional(),
