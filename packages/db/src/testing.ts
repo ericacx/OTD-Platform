@@ -14,7 +14,14 @@ const templates = new Map<string, Promise<{ client: PGlite; refs: SeedRefs | nul
 async function buildTemplate(seed: SeedLevel, now?: Date): Promise<{ client: PGlite; refs: SeedRefs | null }> {
   const client = new PGlite();
   const db = drizzle({ client, schema, casing: "snake_case" });
-  await migrate(db, { migrationsFolder });
+  if (process.env.OTD_TEST_USE_MIGRATIONS === "1") {
+    await migrate(db, { migrationsFolder });
+  } else {
+    const { generateDrizzleJson, generateMigration } = await import("drizzle-kit/api");
+    const empty = generateDrizzleJson({}, undefined, ["public"], "snake_case");
+    const current = generateDrizzleJson(schema, empty.id, ["public"], "snake_case");
+    for (const statement of await generateMigration(empty, current)) await client.exec(statement);
+  }
   const refs = seed === "none" ? null : await seedAll(db as unknown as Database, { demo: seed === "demo", ...(now ? { now } : {}) });
   return { client, refs };
 }

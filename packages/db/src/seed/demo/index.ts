@@ -1,9 +1,26 @@
 import type { Database } from "../../client.js";
 import { factories, quoteStrategies, testAgencies } from "../../schema/index.js";
+import { seedAssistantDemo } from "./assistant.js";
+import { seedCapacityDemo } from "./capacity.js";
 import { type SeedRefs, createSeedContext } from "./context.js";
 import { seedDevelopmentDemo } from "./development.js";
-import { seedOrderDemo } from "./orders.js";
+import { seedDocumentDemo } from "./document.js";
+import { seedFactoryauditDemo } from "./factoryaudit.js";
+import { seedFlowDemo } from "./flow.js";
+import { seedInspectionDemo } from "./inspection.js";
+import { seedMetricsDemo } from "./metrics.js";
+import { seedOrderDemo } from "./order.js";
+import { seedPackagingDemo } from "./packaging.js";
+import { seedPatrolDemo } from "./patrol.js";
+import { seedPlanningDemo } from "./planning.js";
 import { seedPlatformDemo } from "./platform.js";
+import { seedPurchaseDemo } from "./purchase.js";
+import { seedQuoteDemo } from "./quote.js";
+import { seedReceivableDemo } from "./receivable.js";
+import { seedSampleDemo } from "./sample.js";
+import { seedShipmentDemo } from "./shipment.js";
+import { seedSyncDemo } from "./sync.js";
+import { seedTestingDemo } from "./testing.js";
 
 export async function seedDemo(db: Database, refs: SeedRefs, now = new Date()) {
   const ctx = createSeedContext(db, refs, now);
@@ -11,7 +28,24 @@ export async function seedDemo(db: Database, refs: SeedRefs, now = new Date()) {
   for (const a of await db.select().from(testAgencies)) ctx.agencies[a.code] = a.id;
   for (const s of await db.select().from(quoteStrategies)) ctx.strategies[s.code] = s.id;
   await seedDevelopmentDemo(ctx);
+  await seedFlowDemo(ctx);
+  await seedPlanningDemo(ctx);
+  await seedSampleDemo(ctx);
+  await seedTestingDemo(ctx);
+  await seedQuoteDemo(ctx);
+  await seedDocumentDemo(ctx);
   await seedOrderDemo(ctx);
+  await seedPackagingDemo(ctx);
+  await seedPurchaseDemo(ctx);
+  await seedCapacityDemo(ctx);
+  await seedInspectionDemo(ctx);
+  await seedShipmentDemo(ctx);
+  await seedReceivableDemo(ctx);
+  await seedFactoryauditDemo(ctx);
+  await seedSyncDemo(ctx);
+  await seedPatrolDemo(ctx);
+  await seedMetricsDemo(ctx);
+  await seedAssistantDemo(ctx);
   await seedPlatformDemo(ctx);
   return ctx;
 }
