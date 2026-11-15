@@ -18,6 +18,7 @@ export const serviceModules = pgTable("service_modules", {
   sort: integer().notNull().default(0),
   hasPage: boolean().notNull().default(true),
   description: text(),
+  deletedAt: ts(),
   ...auditColumns,
 });
 
@@ -29,16 +30,22 @@ export const serviceItems = pgTable(
     code: text().notNull().unique(),
     name: text().notNull(),
     nameEn: text(),
+    description: text(),
+    department: text(),
+    requiresCustomerConfirm: boolean().notNull().default(false),
     effects: jsonb().$type<ServiceItemEffect>().notNull().default({}),
     paramsSchema: jsonb().$type<Record<string, unknown>>(),
     sort: integer().notNull().default(0),
+    deletedAt: ts(),
     ...auditColumns,
   },
   (t) => [index().on(t.moduleId)],
 );
 
+export type FlowSnapshotItem = { itemCode: string; params?: Record<string, unknown>; effects?: ServiceItemEffect };
+
 export type FlowSnapshot = {
-  modules: { moduleCode: string; sort: number; department: string; items: { itemCode: string; params?: Record<string, unknown> }[] }[];
+  modules: { moduleCode: string; sort: number; department: string; items: FlowSnapshotItem[] }[];
   params: Record<string, unknown>;
 };
 
@@ -58,6 +65,7 @@ export const customerFlowVersions = pgTable(
     customerId: uuid().notNull(),
     versionNo: integer().notNull(),
     snapshot: jsonb().$type<FlowSnapshot>().notNull(),
+    summary: jsonb().$type<Record<string, unknown>>(),
     note: text(),
     publishedAt: ts().notNull().defaultNow(),
     publishedBy: uuid(),
@@ -75,6 +83,7 @@ export const rulePacks = pgTable(
     nameEn: text(),
     customerId: uuid(),
     params: jsonb().$type<Record<string, unknown>>().notNull().default({}),
+    description: text(),
     enabled: boolean().notNull().default(true),
     ...auditColumns,
   },

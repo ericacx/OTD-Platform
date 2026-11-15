@@ -1,4 +1,6 @@
-import { customerOrders, orderLines, styles } from "../../schema/index.js";
+import { eq } from "drizzle-orm";
+import { customerOrders, factoryReplies, orderLines, orderStageLogs, poRevisions, productionProgress, styles, todos } from "../../schema/index.js";
+import { DEMO_USERS } from "../reference.js";
 import type { SeedContext } from "./context.js";
 
 export const DEMO_ORDERS = [
@@ -65,5 +67,113 @@ export async function seedOrderDemo(ctx: SeedContext): Promise<void> {
         await ctx.db.insert(orderLines).values({ orderId: row.id, styleId, color: "Black", size, sku: `${o.customer}-${o.style}-BLK-${size}`, quantity: perSize, unitPrice: o.unitPrice });
       }
     }
+    await seedOrderHistory(ctx, o, row.id, mainStyle.ownerId);
+  }
+  await seedOrderTodos(ctx);
+}
+
+type DemoOrder = (typeof DEMO_ORDERS)[number];
+
+const STAGE_RANK: Record<string, number> = { PENDING_CONFIRM: 0, TO_SCHEDULE: 1, IN_PRODUCTION: 2, TO_SHIP: 3, COMPLETED: 4 };
+const PROGRESS: Record<string, [number, number][]> = {
+  PO0009631: [[-12, 0.05], [-2, 0.12]],
+  PO0009560: [[-12, 0.5], [-2, 0.9]],
+  PO0009412: [[-15, 0.7], [-6, 1]],
+  PO0009745: [[-40, 0.6], [-30, 1]],
+};
+const REVISED: Record<string, { previousPairs: number; offset: number; note: string }> = {
+  PO0009631: { previousPairs: 12000, offset: -32, note: "客户追加 600 双（Rev.2）" },
+};
+
+async function seedOrderHistory(ctx: SeedContext, o: DemoOrder, orderId: string, ownerId: string): Promise<void> {
+  const rank = STAGE_RANK[o.status] ?? 0;
+  const orderOffset = Math.min(o.dueOffset - 60, -3);
+  const confirmOffset = Math.min(o.dueOffset - 55, -2);
+  const owner = DEMO_USERS.find((u) => ctx.users[u.phone] === ownerId)?.name ?? null;
+  const planner = ctx.user("13800000008");
+  const merchandiser = ctx.user("13800000012");
+  const logs: { status: string; action: string; at: Date; operatorId: string | null; operatorName: string | null; note?: string }[] = [];
+  logs.push({ status: "PENDING_CONFIRM", action: "上传客户 PO 并识别字段，进入「待确认」", at: rank === 0 ? ctx.at(Math.max(orderOffset, -4), 9) : ctx.at(orderOffset, 9), operatorId: null, operatorName: "系统识别" });
+  if (rank >= 1) {
+    logs.push({ status: "PENDING_CONFIRM", action: "登记客户确认 Rev.1（邮件）", at: ctx.at(confirmOffset - 1, 15), operatorId: ownerId, operatorName: owner });
+    logs.push({ status: "TO_SCHEDULE", action: "PO 复核规则包全绿，确认订单，进入「待排产」", at: ctx.at(confirmOffset, 10), operatorId: ownerId, operatorName: owner });
+  }
+  const replies: { versionNo: number; offset: number; replyOffset: number }[] = [];
+  if (rank >= 1) {
+    if (REVISED[o.poNo]) replies.push({ versionNo: 1, offset: confirmOffset + 1, replyOffset: o.dueOffset + 5 }, { versionNo: 2, offset: confirmOffset + 4, replyOffset: o.dueOffset });
+    else replies.push({ versionNo: 1, offset: confirmOffset + 1, replyOffset: o.dueOffset });
+  }
+  const productionOffset = confirmOffset + 6;
+  for (const r of replies) {
+    const delay = r.replyOffset - o.dueOffset;
+    const at = ctx.at(r.offset, 11);
+    await ctx.db.insert(factoryReplies).values({ orderId, versionNo: r.versionNo, replyDate: ctx.day(r.replyOffset), delayDays: delay, note: delay > 0 ? "染色排队，申请延期" : null, createdBy: merchandiser, createdAt: at });
+    logs.push({ status: r.offset >= productionOffset && rank >= 2 ? "IN_PRODUCTION" : "TO_SCHEDULE", action: `登记工厂交期回复 V${r.versionNo}：${ctx.day(r.replyOffset)}（${delay === 0 ? "持平" : `延期 ${delay} 天`}）`, at, operatorId: merchandiser, operatorName: "黄磊" });
+  }
+  if (rank >= 2) logs.push({ status: "IN_PRODUCTION", action: "排产确认，进入「生产中」", at: ctx.at(productionOffset, 9), operatorId: planner, operatorName: "孙悦" });
+  if (rank >= 3) logs.push({ status: "TO_SHIP", action: "生产完成并放行，进入「待发货」", at: ctx.at(rank === 3 ? -5 : -28, 16), operatorId: ownerId, operatorName: owner });
+  if (rank >= 4) logs.push({ status: "COMPLETED", action: "全部出货签收、回款闭环，订单完成", at: ctx.at(-10, 10), operatorId: ownerId, operatorName: owner });
+
+  const revised = REVISED[o.poNo];
+  if (revised) {
+    const lines = await ctx.db.select().from(orderLines).where(eq(orderLines.orderId, orderId));
+    const ratio = revised.previousPairs / o.pairs;
+    await ctx.db.insert(poRevisions).values({
+      orderId,
+      revision: 1,
+      snapshot: { revision: 1, customerDueDate: ctx.day(o.dueOffset), totalPairs: revised.previousPairs, currency: o.currency, tradeTerm: o.tradeTerm, lines: lines.map((l) => ({ styleId: l.styleId, color: l.color, size: l.size, sku: l.sku, quantity: Math.round(l.quantity * ratio), unitPrice: l.unitPrice })) },
+      note: revised.note,
+      createdBy: ownerId,
+      createdAt: ctx.at(revised.offset, 14),
+    });
+    await ctx.db.update(customerOrders).set({ revision: 2, revisionDate: ctx.day(revised.offset) }).where(eq(customerOrders.id, orderId));
+    logs.push({ status: "IN_PRODUCTION", action: `PO 改版 Rev.2：总双数 ${revised.previousPairs.toLocaleString("en-US")} → ${o.pairs.toLocaleString("en-US")}`, at: ctx.at(revised.offset, 14), operatorId: ownerId, operatorName: owner, note: revised.note });
+  }
+  if (rank >= 1) await ctx.db.update(customerOrders).set({ customerConfirmedAt: ctx.at(confirmOffset - 1, 15), customerConfirmMethod: "EMAIL" }).where(eq(customerOrders.id, orderId));
+
+  logs.sort((a, b) => a.at.getTime() - b.at.getTime());
+  for (const l of logs) await ctx.db.insert(orderStageLogs).values({ orderId, status: l.status, action: l.action, note: l.note ?? null, at: l.at, operatorId: l.operatorId, operatorName: l.operatorName });
+
+  for (const [offset, rate] of PROGRESS[o.poNo] ?? []) {
+    const at = ctx.at(offset, 17);
+    await ctx.db.insert(productionProgress).values({ orderId, factoryId: ctx.factories[o.factory] ?? null, reportDate: ctx.day(offset), knittedPairs: Math.round(o.pairs * rate), packedPairs: Math.round(o.pairs * Math.max(0, rate - 0.2)), completionRate: rate, note: rate >= 1 ? "下机完成" : null, createdBy: merchandiser, createdAt: at, updatedAt: at });
+  }
+}
+
+async function seedOrderTodos(ctx: SeedContext): Promise<void> {
+  const items: { po: string; phone: string; fingerprint?: string; action: string; title: string; description: string; offset: number; hour: number }[] = [
+    { po: "PO0010459", phone: "13800000001", fingerprint: "order:review:", action: "order.review", title: "复核客户 PO", description: "北岸运动 · #11506 等 2 款 · 37,080 双 · 规则包待校验", offset: -2, hour: 10 },
+    { po: "PO0009631", phone: "13800000001", action: "order.followProduction", title: "跟进生产进度", description: "晨跑者 · #11151 · 完成率 12% · 交期临近，进度落后", offset: 0, hour: 23 },
+    { po: "PO0010459", phone: "13800000001", action: "order.customerConfirm", title: "登记客户确认", description: "北岸运动 · PO Rev.1 待客户邮件确认", offset: 2, hour: 10 },
+    { po: "PO0009631", phone: "13800000001", action: "order.arrangeInspection", title: "安排尾期验货", description: "晨跑者 · #11151 · 终验须在工厂交期前完成", offset: 5, hour: 10 },
+    { po: "PO0009412", phone: "13800000004", action: "order.confirmBooking", title: "确认订舱", description: "蓝湾生活 · #11152 · 8,040 双待发货", offset: -1, hour: 10 },
+    { po: "PO0009560", phone: "13800000004", action: "order.followProduction", title: "跟进生产进度", description: "枫林户外 · #11720 · 完成率 90%", offset: 0, hour: 23 },
+    { po: "PO0009412", phone: "13800000004", action: "order.prepareDocs", title: "准备出货资料", description: "蓝湾生活 · 装箱单与发票", offset: 3, hour: 10 },
+    { po: "PO0010035", phone: "13800000013", fingerprint: "order:review:", action: "order.review", title: "复核客户 PO", description: "海盐家居 · #12750 · 6,060 双", offset: 1, hour: 10 },
+    { po: "PO0009702", phone: "13800000013", action: "order.followSchedule", title: "跟进排产确认", description: "云栖童装 · #11737 · 待排产", offset: -3, hour: 10 },
+    { po: "PO0009690", phone: "13800000005", action: "order.followSchedule", title: "跟进排产确认", description: "极线 · #11063 · 待排产", offset: 2, hour: 10 },
+    { po: "PO0009560", phone: "13800000012", action: "order.recordProduction", title: "登记生产进度", description: "枫林户外 · #11720 · 东城一厂", offset: -1, hour: 10 },
+    { po: "PO0009631", phone: "13800000012", action: "order.recordProduction", title: "登记生产进度", description: "晨跑者 · #11151 · 南湖五厂", offset: 0, hour: 23 },
+  ];
+  for (const it of items) {
+    const orderId = ctx.orders[it.po];
+    if (!orderId) continue;
+    const order = (await ctx.db.select({ customerId: customerOrders.customerId }).from(customerOrders).where(eq(customerOrders.id, orderId)))[0]!;
+    await ctx.db.insert(todos).values({
+      source: "FLOW",
+      action: it.action,
+      title: it.title,
+      description: it.description,
+      docType: "order",
+      docId: orderId,
+      docNo: it.po,
+      link: `/orders/${orderId}`,
+      customerId: order.customerId,
+      assigneeId: ctx.user(it.phone),
+      dueAt: ctx.at(it.offset, it.hour),
+      status: "OPEN",
+      fingerprint: it.fingerprint ? `${it.fingerprint}${orderId}` : `seed:${it.action}:${orderId}:${it.phone}`,
+      createdAt: ctx.at(Math.min(it.offset, 0) - 1, 9),
+    });
   }
 }

@@ -130,4 +130,5 @@ export const seasons = pgTable("seasons", {
   label: label().notNull(),
   startDate: day(),
   endDate: day(),
+  ...auditColumns,
 });

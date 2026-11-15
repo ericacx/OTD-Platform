@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { labelSchema, pageQuerySchema } from "./common.js";
+import { defineErrors } from "./errors.js";
 
 export const customerSchema = z.object({
   id: z.string(),
@@ -109,3 +110,54 @@ export const lookupsSchema = z.object({
   currencies: z.array(z.string()),
 });
 export type Lookups = z.infer<typeof lookupsSchema>;
+
+export const masterdataErrors = defineErrors({
+  MASTERDATA_IN_USE: { status: 409, zh: "「{what}」仍有 {count} 条关联数据，不能删除", en: "{what} still has {count} linked records" },
+});
+
+export const masterDeleteQuerySchema = z.object({ version: z.coerce.number().int().optional() });
+
+export type FactoryDto = z.infer<typeof factorySchema>;
+
+export const baseDetailSchema = baseSchema.extend({ factoryCount: z.number().int(), machineCount: z.number().int() });
+export type BaseDetailDto = z.infer<typeof baseDetailSchema>;
+
+export type NeedleTypeDto = z.infer<typeof needleTypeSchema>;
+
+export const baseMachineSchema = z.object({
+  id: z.string(),
+  baseId: z.string(),
+  baseCode: z.string(),
+  baseName: z.string(),
+  needleTypeId: z.string(),
+  needleCode: z.string(),
+  machineCount: z.number().int(),
+  dailyOutputPerMachine: z.number(),
+  dailyCapacity: z.number(),
+  version: z.number().int(),
+});
+export type BaseMachineDto = z.infer<typeof baseMachineSchema>;
+export const baseMachineWriteSchema = baseMachineUpsertSchema.extend({ version: z.number().int().optional() });
+
+export type MaterialDto = z.infer<typeof materialSchema>;
+export type AgencyDto = z.infer<typeof agencySchema>;
+export type ForwarderDto = z.infer<typeof forwarderSchema>;
+export type DictionaryDto = z.infer<typeof dictionarySchema>;
+
+export const dictionaryTypeSchema = z.object({ type: z.string(), count: z.number().int(), enabledCount: z.number().int() });
+export type DictionaryTypeDto = z.infer<typeof dictionaryTypeSchema>;
+
+export const exchangeRateDetailSchema = exchangeRateSchema.extend({ version: z.number().int() });
+export type ExchangeRateDto = z.infer<typeof exchangeRateDetailSchema>;
+export const exchangeRateWriteSchema = exchangeRateUpsertSchema.extend({ version: z.number().int().optional() });
+export const exchangeRateListQuerySchema = pageQuerySchema.extend({ currency: z.string().length(3).optional(), asOf: z.iso.date().optional() });
+
+export const seasonDetailSchema = seasonSchema.extend({ startDate: z.string().nullable(), endDate: z.string().nullable(), version: z.number().int() });
+export type SeasonDto = z.infer<typeof seasonDetailSchema>;
+export const seasonUpsertSchema = z.object({
+  code: z.string().trim().regex(/^(SS|SP|SU|FA|AW|HO)\d{2}$/),
+  label: labelSchema,
+  startDate: z.iso.date().nullable().optional(),
+  endDate: z.iso.date().nullable().optional(),
+  version: z.number().int().optional(),
+});

@@ -50,6 +50,8 @@ export const plannings = pgTable(
     sourceFilename: text(),
     imageFileIds: jsonb().$type<string[]>().notNull().default([]),
     recognitionError: text(),
+    briefTranslation: text(),
+    recognizedAt: ts(),
     confirmedAt: ts(),
     confirmedBy: uuid(),
     archivedAt: ts(),
@@ -79,6 +81,7 @@ export const samples = pgTable(
     craftNotes: text(),
     sampleNotes: text(),
     costStatus: text(),
+    technicianId: uuid(),
     ...ownershipColumns,
     ...auditColumns,
   },
@@ -97,8 +100,14 @@ export const sampleRounds = pgTable(
     stageEnteredAt: ts().notNull().defaultNow(),
     reworkCount: integer().notNull().default(0),
     dueDate: day(),
+    issuedAt: ts(),
     approvedAt: ts(),
+    approvalResult: text(),
+    approvalDate: day(),
     approvalNote: text(),
+    reviseNote: text(),
+    shipmentId: uuid(),
+    shipmentDocNo: text(),
     ...auditColumns,
   },
   (t) => [uniqueIndex().on(t.sampleId, t.roundNo), index().on(t.status)],
@@ -114,10 +123,11 @@ export const sampleStageLogs = pgTable(
     leftAt: ts(),
     durationHours: qty(),
     location: text(),
+    factoryId: uuid(),
     operatorId: uuid(),
     note: text(),
   },
-  (t) => [index().on(t.roundId)],
+  (t) => [index().on(t.roundId), index().on(t.stage, t.leftAt)],
 );
 
 export const sampleLibrary = pgTable(
@@ -125,11 +135,15 @@ export const sampleLibrary = pgTable(
   {
     id: id(),
     styleId: uuid().notNull(),
+    sampleId: uuid(),
     roundId: uuid(),
     kind: text().notNull(),
     location: text(),
     quantity: integer().notNull().default(1),
     status: text().notNull().default("IN_STOCK"),
+    borrower: text(),
+    lentAt: ts(),
+    returnedAt: ts(),
     note: text(),
     ...ownershipColumns,
     ...auditColumns,
@@ -146,8 +160,11 @@ export const sampleMaterials = pgTable(
     spec: text(),
     quantity: qty(),
     unit: text(),
+    supplier: text(),
     arrivalDate: day(),
+    arrivedAt: ts(),
     status: text().notNull().default("PENDING"),
+    note: text(),
     ...auditColumns,
   },
   (t) => [index().on(t.sampleId)],
@@ -217,8 +234,12 @@ export const testRequests = pgTable(
     status: statusColumn(),
     result: text(),
     failedItems: text(),
+    correctiveAction: text(),
+    resultNote: text(),
+    submittedAt: ts(),
     reusedReportId: uuid(),
     reportId: uuid(),
+    retestOfId: uuid(),
     ...ownershipColumns,
     ...auditColumns,
   },
@@ -239,6 +260,8 @@ export const testReports = pgTable(
     validUntil: day().notNull(),
     fileId: uuid(),
     reuseKey: jsonb().$type<{ structure?: string; craft?: string; yarn?: string }>().notNull().default({}),
+    failedItems: text(),
+    testRequestId: uuid(),
     ...ownershipColumns,
     ...auditColumns,
   },
@@ -278,7 +301,7 @@ export const quotes = pgTable(
     factoryId: uuid(),
     moq: integer(),
     costTotal: money(),
-    costBreakdown: jsonb().$type<{ yarn: number; yarnLossRate: number; labor: number; trims: number; other: number }>(),
+    costBreakdown: jsonb().$type<{ yarn: number; yarnLossRate: number; labor: number; trims: number; other: number; yarnRaw?: number; laborRaw?: number; overheadRate?: number }>(),
     targetPriceUsd: money(),
     targetFx: rate(),
     targetSource: text(),
@@ -290,8 +313,26 @@ export const quotes = pgTable(
     ...ownershipColumns,
     ...auditColumns,
   },
-  (t) => [index().on(t.styleId), index().on(t.ownerId, t.orgId, t.customerId)],
+  (t) => [uniqueIndex().on(t.styleId), index().on(t.ownerId, t.orgId, t.customerId)],
 );
+
+export type QuoteStrategySnapshot = {
+  code: string;
+  name: string;
+  method: string;
+  lossRate: number;
+  overheadRate: number;
+  markupRate: number;
+  targetMargin: number;
+  guardrail: number;
+  lockedFx: number;
+  moq: number;
+  smallOrderUplift: number;
+  skuTiers: { minAmount: number; discount: number }[];
+  version: number;
+};
+
+export type QuoteRoundPricing = { basePrice: number; upliftRate: number; skuAmount: number; discountRate: number; suggestedPrice: number };
 
 export const quoteRounds = pgTable(
   "quote_rounds",
@@ -313,6 +354,12 @@ export const quoteRounds = pgTable(
     quotedBy: uuid(),
     quotedAt: ts(),
     overrideApprovedBy: uuid(),
+    overrideReason: text(),
+    costTotal: money(),
+    strategySnapshot: jsonb().$type<QuoteStrategySnapshot>(),
+    pricing: jsonb().$type<QuoteRoundPricing>(),
+    feedbackAt: ts(),
+    feedbackNote: text(),
     note: text(),
     ...auditColumns,
   },
@@ -335,7 +382,8 @@ export const quoteCostItems = pgTable(
   (t) => [index().on(t.quoteId)],
 );
 
-export type HandoverChecklist = Record<string, { ok: boolean; ref?: string; note?: string }>;
+export type HandoverChecklist = Record<string, { ok: boolean; applicable?: boolean; ref?: string; refId?: string; note?: string }>;
+export type HandoverChangeEntry = { at: string; by: string; byName: string; reason: string };
 
 export const handoverPackages = pgTable(
   "handover_packages",
@@ -350,6 +398,8 @@ export const handoverPackages = pgTable(
     frozenAt: ts(),
     completedBy: uuid(),
     snapshot: jsonb().$type<Record<string, unknown>>(),
+    changeLog: jsonb().$type<HandoverChangeEntry[]>().notNull().default([]),
+    collectingSince: ts().notNull().defaultNow(),
     ...ownershipColumns,
     ...auditColumns,
   },

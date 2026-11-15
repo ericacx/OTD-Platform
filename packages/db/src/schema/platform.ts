@@ -140,6 +140,14 @@ export const syncEndpoints = pgTable("sync_endpoints", {
   protocol: text().notNull(),
   baseUrl: text(),
   credential: jsonb().$type<Record<string, string>>(),
+  credentialUpdatedAt: ts(),
+  contact: text(),
+  timeoutMs: integer().notNull().default(30000),
+  options: jsonb().$type<Record<string, unknown>>().notNull().default({}),
+  lastTestAt: ts(),
+  lastTestOk: boolean(),
+  lastTestMessage: text(),
+  note: text(),
   status: text().notNull().default("ACTIVE"),
   ownerId: uuid(),
   ...auditColumns,
@@ -147,9 +155,11 @@ export const syncEndpoints = pgTable("sync_endpoints", {
 
 export const syncMappings = pgTable("sync_mappings", {
   id: id(),
+  name: text().notNull().default(""),
   endpointId: uuid().notNull(),
   object: text().notNull(),
   direction: text().notNull(),
+  keyField: text(),
   fields: jsonb().$type<MappingField[]>().notNull().default([]),
   codeMaps: jsonb().$type<Record<string, Record<string, string>>>().notNull().default({}),
   enabled: boolean().notNull().default(true),
@@ -169,6 +179,7 @@ export const syncTasks = pgTable("sync_tasks", {
   trigger: text().notNull(),
   frequency: text(),
   intervalMinutes: integer(),
+  batchSize: integer().notNull().default(100),
   ownerId: uuid(),
   lastRunAt: ts(),
   nextRunAt: ts(),
@@ -192,10 +203,12 @@ export const syncRuns = pgTable(
     success: integer().notNull().default(0),
     failed: integer().notNull().default(0),
     skipped: integer().notNull().default(0),
-    steps: jsonb().$type<{ key: string; at: string; ok: boolean }[]>().notNull().default([]),
+    steps: jsonb().$type<{ key: string; at: string; ok: boolean; message?: string | null }[]>().notNull().default([]),
+    durationMs: integer(),
+    error: text(),
     operatorId: uuid(),
   },
-  (t) => [index().on(t.taskId)],
+  (t) => [index().on(t.taskId, t.startedAt)],
 );
 
 export const syncBatches = pgTable(
@@ -224,6 +237,7 @@ export const syncRecords = pgTable(
     runId: uuid().notNull(),
     batchId: uuid(),
     recordKey: text().notNull(),
+    localId: text(),
     field: text(),
     errorType: text(),
     errorMessage: text(),
@@ -234,7 +248,7 @@ export const syncRecords = pgTable(
     nextRetryAt: ts(),
     updatedAt: ts().notNull().defaultNow(),
   },
-  (t) => [index().on(t.taskId, t.status)],
+  (t) => [index().on(t.taskId, t.status), index().on(t.status, t.nextRetryAt), index().on(t.batchId)],
 );
 
 export const syncLinks = pgTable(
@@ -244,6 +258,7 @@ export const syncLinks = pgTable(
     object: text().notNull(),
     localId: text().notNull(),
     remoteId: text().notNull(),
+    lastHash: text(),
     updatedAt: ts().notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.endpointId, t.object, t.localId] })],

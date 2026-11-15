@@ -4,11 +4,21 @@ import type { z } from "zod";
 import { Access, Permission } from "../../core/access/decorators.js";
 import type { AccessContext } from "../../core/access/access.types.js";
 import { zod } from "../../core/zod.pipe.js";
+import { TodoOverviewService } from "./overview.service.js";
 import { TodoService } from "./todo.service.js";
 
 @Controller("todos")
 export class TodoController {
-  constructor(private readonly service: TodoService) {}
+  constructor(
+    private readonly service: TodoService,
+    private readonly overviewService: TodoOverviewService,
+  ) {}
+
+  @Get("overview")
+  @Permission("todo.todo.view")
+  overview(@Access() ctx: AccessContext) {
+    return this.overviewService.overview(ctx);
+  }
 
   @Get("board")
   @Permission("todo.todo.view")
@@ -34,7 +44,7 @@ export class TodoController {
 @Global()
 @Module({
   controllers: [TodoController],
-  providers: [TodoService],
-  exports: [TodoService],
+  providers: [TodoService, TodoOverviewService],
+  exports: [TodoService, TodoOverviewService],
 })
 export class TodoModule {}

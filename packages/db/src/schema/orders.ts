@@ -3,6 +3,7 @@ import { auditColumns, day, docNoColumn, id, money, ownershipColumns, qty, rate,
 import type { ExtractedField } from "./development.js";
 
 export type RuleCheckItem = { key: string; label: { zh: string; en: string }; passed: boolean; detail?: string };
+export type UnmatchedOrderLine = { styleNo: string; color: string | null; size: string | null; sku: string | null; quantity: number; unitPrice: number | null };
 
 export const customerOrders = pgTable(
   "customer_orders",
@@ -39,9 +40,15 @@ export const customerOrders = pgTable(
     sourceFileId: uuid(),
     extraction: jsonb().$type<Record<string, ExtractedField>>(),
     ruleCheck: jsonb().$type<RuleCheckItem[]>(),
+    overrideReason: text(),
+    unmatchedLines: jsonb().$type<UnmatchedOrderLine[]>().notNull().default([]),
     flowVersionId: uuid(),
     confirmedAt: ts(),
     cancelledAt: ts(),
+    cancelReason: text(),
+    customerConfirmedAt: ts(),
+    customerConfirmMethod: text(),
+    customerConfirmNote: text(),
     ...ownershipColumns,
     ...auditColumns,
   },
@@ -150,6 +157,12 @@ export const packagingPlans = pgTable(
     destination: text(),
     requirements: jsonb().$type<{ title: string; content: string }[]>().notNull().default([]),
     confirmedAt: ts(),
+    styleId: uuid(),
+    effectiveVersion: integer(),
+    submittedAt: ts(),
+    confirmedBy: text(),
+    confirmMethod: text(),
+    confirmNote: text(),
     ...ownershipColumns,
     ...auditColumns,
   },
@@ -167,6 +180,9 @@ export const packagingPlanVersions = pgTable(
     customerConfirmed: boolean().notNull().default(false),
     changedBy: uuid(),
     changedAt: ts().notNull().defaultNow(),
+    confirmedAt: ts(),
+    confirmedBy: text(),
+    confirmMethod: text(),
   },
   (t) => [uniqueIndex().on(t.planId, t.versionNo)],
 );
@@ -186,6 +202,14 @@ export const cartons = pgTable(
     cartonRange: text(),
     packDueDate: day(),
     status: statusColumn(),
+    planId: uuid(),
+    planVersion: integer(),
+    orderLineId: uuid(),
+    color: text(),
+    rangeStart: integer(),
+    rangeEnd: integer(),
+    startedAt: ts(),
+    packedAt: ts(),
     ...ownershipColumns,
     ...auditColumns,
   },
@@ -205,6 +229,10 @@ export const purchaseOrders = pgTable(
     orderedAt: day().notNull(),
     promisedDate: day(),
     note: text(),
+    deliveryPlace: text(),
+    receivedAt: day(),
+    cancelledAt: ts(),
+    cancelReason: text(),
     ...ownershipColumns,
     ...auditColumns,
   },
@@ -223,6 +251,7 @@ export const purchaseLines = pgTable(
     unit: text().notNull(),
     unitPrice: money(),
     receivedQty: qty().notNull().default(0),
+    sort: integer().notNull().default(0),
   },
   (t) => [index().on(t.purchaseId)],
 );
@@ -235,6 +264,7 @@ export const purchaseReceipts = pgTable(
     lineId: uuid().notNull(),
     quantity: qty().notNull(),
     receivedAt: day().notNull(),
+    qcResult: text(),
     note: text(),
     createdBy: uuid(),
     createdAt: ts().notNull().defaultNow(),
@@ -250,6 +280,8 @@ export const capacityLedgerVersions = pgTable("capacity_ledger_versions", {
   status: text().notNull().default("DRAFT"),
   publishedAt: ts(),
   publishedBy: uuid(),
+  windowDays: integer().notNull().default(60),
+  note: text(),
   ...auditColumns,
 });
 
@@ -271,6 +303,9 @@ export const capacityRows = pgTable(
     spareCapacity: qty(),
     spareRate: rate(),
     extra: jsonb().$type<Record<string, unknown>>().notNull().default({}),
+    sources: jsonb().$type<Record<string, "MANUAL" | "SYNC" | "DEFAULT">>().notNull().default({}),
+    sort: integer().notNull().default(0),
+    version: integer().notNull().default(1),
   },
   (t) => [index().on(t.versionId, t.ledger)],
 );
@@ -286,6 +321,7 @@ export const ledgerTasks = pgTable("ledger_tasks", {
   nextDueAt: day(),
   status: statusColumn(),
   note: text(),
+  escalatedAt: ts(),
   ...auditColumns,
 });
 
@@ -324,11 +360,31 @@ export const inspections = pgTable(
     releasedAt: ts(),
     releaseCheck: jsonb().$type<RuleCheckItem[]>(),
     concession: boolean().notNull().default(false),
+    requirements: text(),
+    concessionReason: text(),
+    cancelReason: text(),
+    scheduleWarning: text(),
+    reportFileId: uuid(),
+    releasedBy: uuid(),
+    rounds: jsonb().$type<InspectionRoundRecord[]>().notNull().default([]),
     ...ownershipColumns,
     ...auditColumns,
   },
-  (t) => [index().on(t.orderId), index().on(t.status), index().on(t.ownerId, t.orgId, t.customerId)],
+  (t) => [index().on(t.orderId), index().on(t.status), index().on(t.ownerId, t.orgId, t.customerId), index().on(t.factoryId, t.plannedDate)],
 );
+
+export type InspectionRoundRecord = {
+  roundNo: number;
+  result: string;
+  actualDate: string | null;
+  actualSampleQty: number | null;
+  defectQty: number | null;
+  defectRate: number | null;
+  defectNote: string | null;
+  correctiveAction: string | null;
+  recordedAt: string;
+  recordedBy: string | null;
+};
 
 export const inspectionLogs = pgTable(
   "inspection_logs",
@@ -341,6 +397,7 @@ export const inspectionLogs = pgTable(
     toStatus: text(),
     note: text(),
     operatorId: uuid(),
+    operatorName: text(),
   },
   (t) => [index().on(t.inspectionId)],
 );
@@ -354,15 +411,21 @@ export const bookings = pgTable(
     forwarderId: uuid(),
     carrier: text(),
     vessel: text(),
+    voyage: text(),
     blNo: text(),
+    transportMode: text(),
+    cutoffDate: day(),
+    containerType: text(),
     etd: day(),
     eta: day(),
-    status: text().notNull().default("BOOKED"),
+    status: text().notNull().default("PENDING_CARRIER"),
+    confirmedAt: ts(),
+    cancelReason: text(),
     note: text(),
     ...ownershipColumns,
     ...auditColumns,
   },
-  (t) => [index().on(t.orderId)],
+  (t) => [index().on(t.orderId), index().on(t.status, t.etd)],
 );
 
 export const shipments = pgTable(
@@ -382,10 +445,13 @@ export const shipments = pgTable(
     cartonCount: integer(),
     pairs: integer(),
     grossWeight: qty(),
+    volume: qty(),
     factoryId: uuid(),
     seasonCode: text(),
+    inspectionId: uuid(),
     status: statusColumn(),
     signedAt: ts(),
+    note: text(),
     ...ownershipColumns,
     ...auditColumns,
   },
@@ -401,6 +467,7 @@ export const shipmentEvents = pgTable(
     plannedAt: day(),
     actualAt: ts(),
     note: text(),
+    operatorId: uuid(),
   },
   (t) => [index().on(t.shipmentId)],
 );
@@ -412,9 +479,11 @@ export const invoices = pgTable(
     invoiceNo: text().notNull().unique(),
     orderId: uuid(),
     shipmentId: uuid(),
+    receivableId: uuid(),
     amount: money().notNull(),
     currency: text().notNull(),
     issuedDate: day().notNull(),
+    note: text(),
     ...ownershipColumns,
     ...auditColumns,
   },
@@ -440,6 +509,9 @@ export const receivables = pgTable(
     status: statusColumn(),
     disputed: boolean().notNull().default(false),
     missingData: boolean().notNull().default(false),
+    note: text(),
+    offsetTargetId: uuid(),
+    overdueNotifiedAt: ts(),
     ...ownershipColumns,
     ...auditColumns,
   },
@@ -455,6 +527,7 @@ export const receipts = pgTable(
     currency: text().notNull(),
     receivedAt: day().notNull(),
     method: text(),
+    bankRef: text(),
     note: text(),
     createdBy: uuid(),
     createdAt: ts().notNull().defaultNow(),
@@ -489,6 +562,7 @@ export const factoryAudits = pgTable(
     auditor: text(),
     result: text(),
     score: rate(),
+    certificateValidUntil: day(),
     status: statusColumn(),
     note: text(),
     ...ownershipColumns,
@@ -505,9 +579,11 @@ export const auditFindings = pgTable(
     item: text().notNull(),
     severity: text().notNull(),
     correctiveAction: text(),
+    responsible: text(),
     dueDate: day(),
     status: text().notNull().default("OPEN"),
     closedAt: ts(),
+    closeNote: text(),
     ...auditColumns,
   },
   (t) => [index().on(t.auditId)],
