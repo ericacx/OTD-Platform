@@ -116,6 +116,7 @@ export const roleGrantSchema = z.object({
 export type RoleGrantInput = z.infer<typeof roleGrantSchema>;
 
 export const roleDetailSchema = roleSummarySchema.extend({ permissions: z.array(z.string()) });
+export type RoleDetail = z.infer<typeof roleDetailSchema>;
 
 export const auditLogSchema = z.object({
   id: z.string(),
