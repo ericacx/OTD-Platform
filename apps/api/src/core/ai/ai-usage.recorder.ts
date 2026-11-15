@@ -20,7 +20,18 @@ export class AiUsageRecorder implements OnModuleInit {
 
   async record(u: AiUsageRecord): Promise<void> {
     try {
-      await this.db.insert(aiUsage).values({ userId: u.userId ?? null, purpose: u.purpose, model: u.model, inputTokens: u.inputTokens, outputTokens: u.outputTokens });
+      await this.db.insert(aiUsage).values({
+        userId: u.userId ?? null,
+        purpose: u.purpose,
+        model: u.model,
+        inputTokens: u.inputTokens,
+        outputTokens: u.outputTokens,
+        cacheReadTokens: u.cacheReadTokens ?? 0,
+        cacheWriteTokens: u.cacheWriteTokens ?? 0,
+        stopReason: u.stopReason ?? null,
+        durationMs: u.durationMs ?? null,
+        requestId: u.requestId ?? null,
+      });
     } catch (err) {
       this.logger.warn(`ai_usage insert failed: ${err instanceof Error ? err.message : String(err)}`);
     }

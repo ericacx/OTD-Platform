@@ -12,7 +12,7 @@ import { extractPdfText } from "./pdf-text.js";
 
 type Msg = { content: unknown[]; stop_reason: string; stop_details?: unknown; model: string; usage: Record<string, number | null> };
 
-function stubClient(replies: Msg[]) {
+function stubClient(replies: (Msg | Error)[]) {
   const calls: Record<string, unknown>[] = [];
   const next = () => {
     const r = replies.shift();
@@ -23,12 +23,22 @@ function stubClient(replies: Msg[]) {
     beta: {
       messages: {
         stream: (body: Record<string, unknown>) => {
-          calls.push(body);
-          return { finalMessage: async () => next() };
-        },
-        create: async (body: Record<string, unknown>) => {
           calls.push(structuredClone(body));
-          return next();
+          const listeners: ((delta: string) => void)[] = [];
+          const stream = {
+            request_id: `req_${calls.length}`,
+            on: (event: string, fn: (delta: string) => void) => {
+              if (event === "text") listeners.push(fn);
+              return stream;
+            },
+            finalMessage: async () => {
+              const reply = next();
+              if (reply instanceof Error) throw reply;
+              for (const block of reply.content as { type: string; text?: string }[]) if (block.type === "text" && block.text) for (const fn of listeners) fn(block.text);
+              return reply;
+            },
+          };
+          return stream;
         },
       },
     },
@@ -65,7 +75,7 @@ describe("ClaudeAiProvider", () => {
     const content = (body.messages as { content: { type: string }[] }[])[0]!.content;
     expect(content.map((c) => c.type)).toEqual(["document", "text"]);
     expect(body).not.toHaveProperty("temperature");
-    expect(recorded).toEqual([{ purpose: "planning.extract", model: "claude-opus-5-5", userId: "u1", inputTokens: 105, outputTokens: 20 }]);
+    expect(recorded).toEqual([{ purpose: "planning.extract", model: "claude-opus-5-5", userId: "u1", inputTokens: 105, outputTokens: 20, cacheReadTokens: 5, cacheWriteTokens: 0, stopReason: "end_turn", durationMs: expect.any(Number), requestId: "req_1" }]);
   });
 
   it("produces a strict-compatible schema for planning extraction", () => {
@@ -127,6 +137,50 @@ describe("ClaudeAiProvider", () => {
       ["t1", false],
       ["t2", true],
     ]);
+  });
+
+  it("streams chat turns with prompt caching and eager tool input, forwarding text deltas", async () => {
+    const { client, calls } = stubClient([
+      { content: [{ type: "tool_use", id: "t1", name: "lookup", input: { q: "x" } }], stop_reason: "tool_use", model: "m", usage },
+      { content: [{ type: "text", text: "好的" }], stop_reason: "end_turn", model: "m", usage },
+    ]);
+    const deltas: string[] = [];
+    const ai = new ClaudeAiProvider(client, { model: "m" });
+    const res = await ai.chat({
+      purpose: "assistant.chat",
+      system: "sys",
+      messages: [{ role: "user", content: "q" }],
+      tools: [{ name: "lookup", description: "d", inputSchema: { type: "object", properties: {} }, run: async () => "ok" }],
+      onText: (d) => deltas.push(d),
+    });
+    expect(res.text).toBe("好的");
+    expect(deltas).toEqual(["好的"]);
+    expect(calls[0]!.cache_control).toEqual({ type: "ephemeral" });
+    expect(calls[0]!.max_tokens).toBe(64000);
+    expect((calls[0]!.tools as { eager_input_streaming?: boolean }[])[0]!.eager_input_streaming).toBe(true);
+  });
+
+  it("does not run tools from a turn cut off by max_tokens, and re-issues a turn whose tool input could not be parsed", async () => {
+    let ran = 0;
+    const tool = { name: "lookup", description: "d", inputSchema: { type: "object", properties: {} }, run: async () => ++ran };
+    const truncated = stubClient([{ content: [{ type: "tool_use", id: "t1", name: "lookup", input: {} }], stop_reason: "max_tokens", model: "m", usage }]);
+    const res = await new ClaudeAiProvider(truncated.client, { model: "m" }).chat({ purpose: "p", system: "s", messages: [{ role: "user", content: "q" }], tools: [tool] });
+    expect(ran).toBe(0);
+    expect(res.text).toContain("长度上限");
+    const flaky = stubClient([new SyntaxError("Unexpected end of JSON input"), { content: [{ type: "text", text: "完成" }], stop_reason: "end_turn", model: "m", usage }]);
+    const again = await new ClaudeAiProvider(flaky.client, { model: "m" }).chat({ purpose: "p", system: "s", messages: [{ role: "user", content: "q" }], tools: [tool] });
+    expect(again.text).toBe("完成");
+    expect(flaky.calls).toHaveLength(2);
+  });
+
+  it("routes offline chat handlers by purpose", async () => {
+    const fake = new FakeAiProvider();
+    fake.onChat("a", () => ({ text: "A", toolCalls: [] }));
+    fake.onChat("b", () => ({ text: "B", toolCalls: [] }));
+    const deltas: string[] = [];
+    expect((await fake.chat({ purpose: "b", system: "", messages: [{ role: "user", content: "x" }], onText: (d) => deltas.push(d) })).text).toBe("B");
+    expect((await fake.chat({ purpose: "a", system: "", messages: [{ role: "user", content: "x" }] })).text).toBe("A");
+    expect(deltas).toEqual(["B"]);
   });
 
   it("drops thinking and tool_use blocks before a fallback boundary when echoing", () => {

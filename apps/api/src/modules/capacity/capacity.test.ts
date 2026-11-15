@@ -183,13 +183,14 @@ describe("capacity ledger", () => {
     expect((await planner.post(`/capacity/versions/${d.version.id}/publish`, { version: published.body.data.version.version })).body.errcode).toBe("FLOW_ILLEGAL_TRANSITION");
     const knitRow = published.body.data.rows[0];
     expect((await planner.put(`/capacity/rows/${knitRow.id}`, { version: knitRow.version, leadDays: 9 })).body.errcode).toBe("CAPACITY_VERSION_PUBLISHED");
-    const summary = (await planner.get("/capacity/summary")).body.data;
-    expect(summary.version.label).toBe("V1");
+    expect((await planner.get("/capacity/summary")).body.data.version.label).toBe("V1");
     const tasks = (await planner.get("/capacity/tasks")).body.data;
     expect(tasks.find((x: { ledger: string }) => x.ledger === "KNIT").currentVersion).toBe("V1");
 
     const v2 = (await planner.post("/capacity/versions", {})).body.data;
     expect(v2.version.rowCounts).toEqual({ KNIT: cells.length, PACKING: 1, SPECIAL: 0 });
+    expect((await planner.get("/capacity/summary")).body.data.version).toMatchObject({ label: "V2", status: "DRAFT" });
+    expect((await planner.get("/capacity/summary?published=true")).body.data.version).toMatchObject({ label: "V1", status: "PUBLISHED" });
     expect(v2.rows.find((r: { ledger: string }) => r.ledger === "PACKING").extra.scheduled).toBe(160.2);
   });
 });

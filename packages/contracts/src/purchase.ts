@@ -133,6 +133,18 @@ export type PurchaseDto = z.infer<typeof purchaseSchema>;
 export const purchaseDetailSchema = purchaseSchema.extend({ lines: z.array(purchaseLineSchema), receipts: z.array(purchaseReceiptSchema) });
 export type PurchaseDetailDto = z.infer<typeof purchaseDetailSchema>;
 
+export const purchaseMaterialSchema = z.object({
+  id: z.string(),
+  code: z.string(),
+  name: z.string(),
+  category: z.string(),
+  spec: z.string().nullable(),
+  unit: z.string(),
+  unitPrice: z.number().nullable(),
+  supplier: z.string().nullable(),
+});
+export type PurchaseMaterialDto = z.infer<typeof purchaseMaterialSchema>;
+
 export const requirementKeySchema = z.enum(["YARN", "OPP_BAG", "CARTON"]);
 
 export const purchaseRequirementSchema = z.object({

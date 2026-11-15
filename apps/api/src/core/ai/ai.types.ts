@@ -26,11 +26,23 @@ export type AiChatRequest = {
   messages: AiChatMessage[];
   tools?: AiTool[];
   userId?: string;
+  onText?: (delta: string) => void;
 };
 
 export type AiChatResult = { text: string; toolCalls: { name: string; input: unknown; output: unknown }[] };
 
-export type AiUsageRecord = { purpose: string; model: string; userId?: string; inputTokens: number; outputTokens: number };
+export type AiUsageRecord = {
+  purpose: string;
+  model: string;
+  userId?: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+  stopReason?: string;
+  durationMs?: number;
+  requestId?: string;
+};
 export type AiUsageSink = (usage: AiUsageRecord) => void;
 
 export class AiProviderError extends Error {

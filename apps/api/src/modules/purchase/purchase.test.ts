@@ -154,5 +154,8 @@ describe("purchase orders", () => {
     expect((await manager.get("/purchases/receipts")).body.data.total).toBe(0);
     const gm = await t.as("gm");
     expect((await gm.get(`/purchases/${p.id}`)).status).toBe(200);
+    const mats = (await buyer.get("/purchases/materials")).body.data;
+    expect(mats.find((m: { code: string }) => m.code === "P-OPP-BAG")).toMatchObject({ unit: "个", category: "PACKAGING" });
+    expect((await sales.get("/purchases/materials")).status).toBe(403);
   });
 });

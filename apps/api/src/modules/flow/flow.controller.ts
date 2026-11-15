@@ -13,6 +13,7 @@ import {
   migrationQuerySchema,
   moduleAssignSchema,
   rulePackListQuerySchema,
+  rulePackRollbackSchema,
   rulePackUpsertSchema,
   serviceItemUpsertSchema,
   serviceModuleListQuerySchema,
@@ -202,5 +203,18 @@ export class FlowController {
   async removePack(@Access() ctx: AccessContext, @Param("id", ParseUUIDPipe) id: string, @Query(zod(catalogDeleteQuerySchema)) q: z.infer<typeof catalogDeleteQuerySchema>) {
     await this.packs.remove(ctx, id, q.version);
     return null;
+  }
+
+  @Get("rule-packs/:id/snapshots")
+  @Permission("flow.rulepack.view")
+  packSnapshots(@Access() ctx: AccessContext, @Param("id", ParseUUIDPipe) id: string) {
+    return this.packs.snapshots(ctx, id);
+  }
+
+  @Post("rule-packs/:id/rollback")
+  @HttpCode(200)
+  @Permission("flow.rulepack.edit")
+  rollbackPack(@Access() ctx: AccessContext, @Param("id", ParseUUIDPipe) id: string, @Body(zod(rulePackRollbackSchema)) body: z.infer<typeof rulePackRollbackSchema>) {
+    return this.packs.rollback(ctx, id, body);
   }
 }

@@ -98,7 +98,7 @@ export const sampleSummarySchema = z.object({
   dueDate: z.string().nullable(),
   remainingDays: z.number().int().nullable(),
   currentRound: z
-    .object({ id: z.string(), roundNo: z.number().int(), roundType: roundTypeSchema, status: roundStatusSchema, stageIndex: z.number().int(), reworkCount: z.number().int(), progress: z.enum(["NORMAL", "SLOW"]), version: z.number().int() })
+    .object({ id: z.string(), roundNo: z.number().int(), roundType: roundTypeSchema, status: roundStatusSchema, stageIndex: z.number().int(), stageEnteredAt: z.string(), reworkCount: z.number().int(), progress: z.enum(["NORMAL", "SLOW"]), version: z.number().int() })
     .nullable(),
   costStatus: z.string().nullable(),
   ownerId: z.string(),

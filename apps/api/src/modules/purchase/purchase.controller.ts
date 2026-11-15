@@ -22,6 +22,12 @@ export class PurchaseController {
     return this.service.listReceipts(ctx, q);
   }
 
+  @Get("materials")
+  @Permission("purchase.order.view", "purchase.order.create")
+  materials() {
+    return this.service.listMaterials();
+  }
+
   @Get("requirements")
   @Permission("purchase.order.view")
   requirements(@Access() ctx: AccessContext, @Query(zod(purchaseRequirementQuerySchema)) q: z.infer<typeof purchaseRequirementQuerySchema>) {

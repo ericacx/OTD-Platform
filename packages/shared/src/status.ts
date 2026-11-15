@@ -300,6 +300,16 @@ export const STATUS_MACHINES = {
     },
     transitions: { FAILED: ["RETRYING", "SUCCESS", "SKIPPED"], RETRYING: ["SUCCESS", "FAILED", "SKIPPED"] },
   }),
+  aiProposal: machine({
+    label: { zh: "AI 提议", en: "AI proposal" },
+    initial: "PENDING",
+    statuses: {
+      PENDING: s("待确认", "Pending", "warning"),
+      CONFIRMED: s("已执行", "Executed", "success"),
+      REJECTED: s("已放弃", "Discarded", "neutral"),
+    },
+    transitions: { PENDING: ["CONFIRMED", "REJECTED"] },
+  }),
 } as const;
 
 export type MachineKey = keyof typeof STATUS_MACHINES;

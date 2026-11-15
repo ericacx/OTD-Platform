@@ -251,4 +251,14 @@ describe("planning (briefs)", () => {
     const rows = await t.db.select().from(aiUsage).where(eq(aiUsage.userId, sales.userId));
     expect(rows.map((r) => [r.purpose, r.model, r.inputTokens, r.outputTokens])).toEqual([["planning.extract", "claude-opus-5-5", 1200, 340]]);
   });
+
+  it("lists visible styles for pickers", async () => {
+    const sales = await t.as("sales");
+    const mine = (await sales.get("/styles?keyword=125")).body.data;
+    expect(mine.map((s: { styleNo: string }) => s.styleNo)).toEqual(["12593"]);
+    expect(mine[0]).toMatchObject({ customerName: "北岸运动", productCode: "NSR12593-FA27" });
+    expect((await (await t.as("sales3")).get("/styles?keyword=12593")).body.data).toEqual([]);
+    expect((await (await t.as("quality")).get("/styles?limit=200")).body.data.length).toBeGreaterThanOrEqual(15);
+    expect((await (await t.as("planner")).get("/styles")).status).toBe(403);
+  });
 });

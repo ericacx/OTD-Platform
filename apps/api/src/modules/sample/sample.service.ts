@@ -585,7 +585,7 @@ export class SampleService implements OnModuleInit {
       if (round) {
         const status = round.status as RoundStatus;
         const stages = buildStages(status, logs.filter((x) => x.roundId === round.id), r.factoryId, avg, now, new Map());
-        current = { id: round.id, roundNo: round.roundNo, roundType: round.roundType as RoundType, status, stageIndex: STAGE_INDEX[status], reworkCount: round.reworkCount, progress: progressOf(status, stages, round.dueDate ?? r.dueDate, now), version: round.version };
+        current = { id: round.id, roundNo: round.roundNo, roundType: round.roundType as RoundType, status, stageIndex: STAGE_INDEX[status], stageEnteredAt: round.stageEnteredAt.toISOString(), reworkCount: round.reworkCount, progress: progressOf(status, stages, round.dueDate ?? r.dueDate, now), version: round.version };
       }
       return this.summaryOf(r, l, current);
     });
@@ -602,7 +602,7 @@ export class SampleService implements OnModuleInit {
     const roundDtos: RoundDto[] = rounds.map((round) => this.roundDto(round, r, logs.filter((x) => x.roundId === round.id), avg, now, operators));
     const last = roundDtos[roundDtos.length - 1];
     const current: SampleSummaryDto["currentRound"] = last
-      ? { id: last.id, roundNo: last.roundNo, roundType: last.roundType, status: last.status, stageIndex: last.stageIndex, reworkCount: last.reworkCount, progress: last.progress, version: last.version }
+      ? { id: last.id, roundNo: last.roundNo, roundType: last.roundType, status: last.status, stageIndex: last.stageIndex, stageEnteredAt: last.stageEnteredAt, reworkCount: last.reworkCount, progress: last.progress, version: last.version }
       : null;
     const team = r.teamOrgId ? (await this.db.select({ name: orgs.name }).from(orgs).where(eq(orgs.id, r.teamOrgId)))[0] : undefined;
     const materials = await this.toMaterials(await this.db.select().from(sampleMaterials).where(eq(sampleMaterials.sampleId, r.id)).orderBy(asc(sampleMaterials.createdAt)));

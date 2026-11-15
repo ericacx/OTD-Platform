@@ -3,6 +3,7 @@ import type { Page } from "@otd/contracts/common";
 import {
   type PurchaseDetailDto,
   type PurchaseDto,
+  type PurchaseMaterialDto,
   type PurchaseReceiptDto,
   type PurchaseRequirementDto,
   type purchaseCreateSchema,
@@ -29,7 +30,7 @@ import {
   users,
 } from "@otd/db";
 import { canTransition } from "@otd/shared";
-import { type SQL, and, asc, desc, eq, gte, ilike, inArray, isNotNull, lt, lte, ne, or } from "drizzle-orm";
+import { type SQL, and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, lt, lte, ne, or } from "drizzle-orm";
 import type { z } from "zod";
 import { type AccessContext, canSeeCustomer, systemContext } from "../../core/access/access.types.js";
 import { assertCanSee, ownership, scoped } from "../../core/access/scope.js";
@@ -234,7 +235,7 @@ export class PurchaseService implements OnModuleInit {
       CARTON: (l) => (mat("CARTON") !== null && l.materialId === mat("CARTON")!.id) || (categoryOf.get(l.purchaseId) === "PACKAGING" && !l.materialId && l.name.includes("箱")),
     };
     const specs: { key: keyof typeof REQUIREMENT_MATERIALS; category: "YARN" | "PACKAGING"; name: string; unit: string; basis: string; required: number }[] = [
-      { key: "YARN", category: "YARN", name: mat("YARN")?.name ?? "纱线", unit: "kg", basis: `${YARN_GRAMS_PER_PAIR} g/双`, required: round3((totalPairs * YARN_GRAMS_PER_PAIR) / 1000) },
+      { key: "YARN", category: "YARN", name: "纱线合计", unit: "kg", basis: `${YARN_GRAMS_PER_PAIR} g/双`, required: round3((totalPairs * YARN_GRAMS_PER_PAIR) / 1000) },
       { key: "OPP_BAG", category: "PACKAGING", name: mat("OPP_BAG")?.name ?? "OPP 袋", unit: mat("OPP_BAG")?.unit ?? "个", basis: "1 个/双", required: totalPairs },
       { key: "CARTON", category: "PACKAGING", name: mat("CARTON")?.name ?? "纸箱", unit: mat("CARTON")?.unit ?? "个", basis: `1 个/${pairsPerCarton} 双`, required: cartonsNeeded },
     ];
@@ -253,6 +254,11 @@ export class PurchaseService implements OnModuleInit {
         return { ...s, materialId: m?.id ?? null, materialCode: m?.code ?? null, ordered, received, shortage, suggestion: shortage > 0 ? `建议补采 ${shortage} ${s.unit}` : null };
       }),
     };
+  }
+
+  async listMaterials(): Promise<PurchaseMaterialDto[]> {
+    const rows = await this.db.select().from(materials).where(isNull(materials.deletedAt)).orderBy(asc(materials.category), asc(materials.code));
+    return rows.map((m) => ({ id: m.id, code: m.code, name: m.name, category: m.category, spec: m.spec, unit: m.unit, unitPrice: m.unitPrice, supplier: m.supplier }));
   }
 
   async scanOverdue(): Promise<number> {

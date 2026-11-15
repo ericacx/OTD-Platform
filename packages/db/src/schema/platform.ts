@@ -70,6 +70,10 @@ export const patrolRuns = pgTable("patrol_runs", {
   redCount: integer().notNull().default(0),
   yellowCount: integer().notNull().default(0),
   greenModules: jsonb().$type<string[]>().notNull().default([]),
+  scannedModules: jsonb().$type<string[]>().notNull().default([]),
+  ruleStats: jsonb().$type<Record<string, { hits: number; red: number; yellow: number }>>().notNull().default({}),
+  status: text().notNull().default("DONE"),
+  error: text(),
   triggeredBy: uuid(),
 });
 
@@ -95,8 +99,25 @@ export const patrolHits = pgTable(
     firstSeenAt: ts().notNull().defaultNow(),
     lastSeenAt: ts().notNull().defaultNow(),
     closedAt: ts(),
+    docType: text(),
+    docId: text(),
+    link: text(),
+    orderId: uuid(),
+    ownerId: uuid(),
+    orgId: uuid(),
+    assigneeRole: text(),
+    firstRunId: uuid(),
+    closeReason: text(),
+    handleNote: text(),
+    handledBy: uuid(),
+    handledAt: ts(),
+    silencedUntil: ts(),
+    todoId: uuid(),
+    todoOwned: boolean().notNull().default(false),
+    escalatedAt: ts(),
+    version: integer().notNull().default(1),
   },
-  (t) => [index().on(t.status, t.light), index().on(t.fingerprint)],
+  (t) => [index().on(t.status, t.light), index().on(t.fingerprint), index().on(t.ruleId, t.status), index().on(t.orderId)],
 );
 
 export const metricSnapshots = pgTable(
@@ -112,7 +133,8 @@ export const metricSnapshots = pgTable(
   (t) => [uniqueIndex().on(t.metric, t.scopeKey, t.period)],
 );
 
-export type DiagnosisItem = { level: "PRIORITY" | "WATCH"; title: string; basis: string; suggestion: string };
+export type DiagnosisItem = { level: "PRIORITY" | "WATCH"; title: string; basis: string; suggestion: string; signalKey?: string; numbers?: Record<string, number | string> };
+export type DiagnosisSignal = { key: string; level: "PRIORITY" | "WATCH"; impact: number; numbers: Record<string, number | string> };
 
 export const diagnoses = pgTable(
   "diagnoses",
@@ -123,6 +145,11 @@ export const diagnoses = pgTable(
     period: text().notNull(),
     summary: text().notNull(),
     items: jsonb().$type<DiagnosisItem[]>().notNull(),
+    signals: jsonb().$type<DiagnosisSignal[]>().notNull().default([]),
+    title: text(),
+    scopeLabel: text(),
+    asOf: text(),
+    generatedBy: uuid(),
     model: text(),
     generatedAt: ts().notNull().defaultNow(),
   },
@@ -186,6 +213,8 @@ export const syncTasks = pgTable("sync_tasks", {
   lastStatus: text(),
   watermark: text(),
   enabled: boolean().notNull().default(true),
+  consecutiveFailures: integer().notNull().default(0),
+  disabledReason: text(),
   note: text(),
   ...auditColumns,
 });
@@ -270,6 +299,7 @@ export const aiConversations = pgTable(
     id: id(),
     userId: uuid().notNull(),
     title: text().notNull(),
+    messageCount: integer().notNull().default(0),
     createdAt: ts().notNull().defaultNow(),
     updatedAt: ts().notNull().defaultNow(),
   },
@@ -281,11 +311,12 @@ export const aiMessages = pgTable(
   {
     id: id(),
     conversationId: uuid().notNull(),
+    seq: integer().notNull().default(0),
     role: text().notNull(),
     content: jsonb().$type<unknown>().notNull(),
     createdAt: ts().notNull().defaultNow(),
   },
-  (t) => [index().on(t.conversationId)],
+  (t) => [index().on(t.conversationId, t.seq)],
 );
 
 export const aiUsage = pgTable(
@@ -297,7 +328,31 @@ export const aiUsage = pgTable(
     model: text().notNull(),
     inputTokens: integer().notNull().default(0),
     outputTokens: integer().notNull().default(0),
+    cacheReadTokens: integer().notNull().default(0),
+    cacheWriteTokens: integer().notNull().default(0),
+    stopReason: text(),
+    durationMs: integer(),
+    requestId: text(),
     createdAt: ts().notNull().defaultNow(),
   },
   (t) => [index().on(t.userId, t.createdAt)],
+);
+
+export const aiProposals = pgTable(
+  "ai_proposals",
+  {
+    id: id(),
+    userId: uuid().notNull(),
+    conversationId: uuid().notNull(),
+    messageId: uuid(),
+    kind: text().notNull(),
+    payload: jsonb().$type<Record<string, unknown>>().notNull(),
+    preview: jsonb().$type<Record<string, unknown>>().notNull(),
+    status: text().notNull().default("PENDING"),
+    result: jsonb().$type<Record<string, unknown>>(),
+    decidedAt: ts(),
+    createdAt: ts().notNull().defaultNow(),
+    version: integer().notNull().default(1),
+  },
+  (t) => [index().on(t.userId, t.status), index().on(t.conversationId)],
 );

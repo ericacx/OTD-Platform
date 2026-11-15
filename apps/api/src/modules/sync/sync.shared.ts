@@ -82,6 +82,8 @@ export function logSummary(action: string, p: Record<string, unknown>): string {
       return p.error ? `执行失败：${String(p.error)}` : `执行完成：成功 ${n("success")} 条，失败 ${n("failed")} 条，跳过 ${n("skipped")} 条`;
     case "sync.task.retry":
       return `${MODE_LABEL[String(p.mode)] ?? "重试"}失败记录 ${n("total")} 条：成功 ${n("success")} 条，仍失败 ${n("failed")} 条`;
+    case "sync.task.autoDisable":
+      return `连续 ${n("consecutiveFailures")} 次执行失败，已自动停用任务`;
     case "sync.record.abandon":
       return `${n("count")} 条记录超过最大重试次数，已转人工处理`;
     default:

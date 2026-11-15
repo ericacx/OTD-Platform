@@ -10,6 +10,7 @@ import {
   quoteRoundCreateSchema,
   quoteStrategyUpsertSchema,
   quoteUpdateSchema,
+  styleOptionQuerySchema,
 } from "@otd/contracts/quote";
 import type { z } from "zod";
 import { Access, Permission } from "../../core/access/decorators.js";
@@ -56,6 +57,12 @@ export class QuoteController {
   @Permission("quote.quote.create", "quote.quote.submit")
   preview(@Access() ctx: AccessContext, @Body(zod(quotePreviewSchema)) body: z.infer<typeof quotePreviewSchema>) {
     return this.service.preview(ctx, body);
+  }
+
+  @Get("style-options")
+  @Permission("quote.quote.view", "document.handover.view", "sampleship.shipment.create")
+  styleOptions(@Access() ctx: AccessContext, @Query(zod(styleOptionQuerySchema)) q: z.infer<typeof styleOptionQuerySchema>) {
+    return this.service.styleOptions(ctx, q);
   }
 
   @Get(":id")

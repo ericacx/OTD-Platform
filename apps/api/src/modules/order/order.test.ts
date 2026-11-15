@@ -319,7 +319,12 @@ describe("orders · stages, replies, revisions, cancel", () => {
     const confirmed = (await sales.post(`/orders/${order.id}/confirm`, { version: edited.version })).body.data;
     const locked = await sales.put(`/orders/${order.id}`, { version: confirmed.version, customerDueDate: "2027-01-05" });
     expect(locked.body.errcode).toBe("ORDER_KEY_FIELD_LOCKED");
-    const note = await sales.put(`/orders/${order.id}`, { version: confirmed.version, note: "改备注可以" });
+    expect((await sales.put(`/orders/${order.id}`, { version: confirmed.version, currency: "EUR" })).body.errcode).toBe("ORDER_KEY_FIELD_LOCKED");
+    expect((await sales.put(`/orders/${order.id}`, { version: confirmed.version, tradeTerm: "FOB Ningbo" })).body.errcode).toBe("ORDER_KEY_FIELD_LOCKED");
+    const same = await sales.put(`/orders/${order.id}`, { version: confirmed.version, currency: confirmed.currency, customerDueDate: confirmed.customerDueDate, destination: "Paris, FR" });
+    expect(same.status).toBe(200);
+    expect(same.body.data.destination).toBe("Paris, FR");
+    const note = await sales.put(`/orders/${order.id}`, { version: same.body.data.version, note: "改备注可以" });
     expect(note.body.data.note).toBe("改备注可以");
   });
 

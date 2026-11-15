@@ -375,11 +375,13 @@ export class InspectionService implements OnModuleInit {
 
   async releaseCheck(ctx: AccessContext, id: string): Promise<ReleaseCheckDto> {
     const row = await this.load(ctx, id);
+    const flowVersionId = (await this.db.select({ v: customerOrders.flowVersionId }).from(customerOrders).where(eq(customerOrders.id, row.orderId)))[0]?.v ?? null;
+    const { limit, days } = await this.releaseParams(row.customerId, flowVersionId);
     if (row.status === "RELEASED" && row.releaseCheck) {
       const items = fromRuleItems(row.releaseCheck);
-      return { passed: items.every((i) => i.passed), refDate: row.plannedExFactory ?? this.clock.today(), items, missing: items.filter((i) => !i.passed).map((i) => i.label.zh), releasable: false, concessionAvailable: false };
+      return { passed: items.every((i) => i.passed), refDate: row.plannedExFactory ?? this.clock.today(), items, missing: items.filter((i) => !i.passed).map((i) => i.label.zh), releasable: false, concessionAvailable: false, dailyLimit: limit, releaseDays: days };
     }
-    return this.evaluate(row, this.db);
+    return { ...(await this.evaluate(row, this.db)), dailyLimit: limit, releaseDays: days };
   }
 
   async release(ctx: AccessContext, id: string, input: z.infer<typeof inspectionReleaseSchema>): Promise<InspectionDto> {
@@ -440,7 +442,7 @@ export class InspectionService implements OnModuleInit {
     }
   }
 
-  private async evaluate(row: Row, db: DbOrTx): Promise<ReleaseCheckDto> {
+  private async evaluate(row: Row, db: DbOrTx): Promise<Omit<ReleaseCheckDto, "dailyLimit" | "releaseDays">> {
     const today = this.clock.today();
     const refDate = row.plannedExFactory ?? today;
     const order = (await db.select().from(customerOrders).where(eq(customerOrders.id, row.orderId)))[0]!;

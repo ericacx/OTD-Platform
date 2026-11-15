@@ -21,7 +21,7 @@ function devDone(styleNo: string, patch: Partial<StyleFacts> = {}): StyleFacts {
 
 function facts(patch: Partial<OrderFacts> = {}, order: Partial<OrderFacts["order"]> = {}): OrderFacts {
   return {
-    order: { id: "o1", poNo: "PO0010459", status: "PENDING_CONFIRM", ruleCheck: [{ key: "qty", label: { zh: "数量一致", en: "Qty" }, passed: true }], unmatchedStyleNos: [], factoryReplyDate: "2026-12-16", factoryName: "南湖五厂", transportMode: "RAIL", ...order },
+    order: { id: "o1", poNo: "PO0010459", status: "PENDING_CONFIRM", ruleCheck: [{ key: "qty", label: { zh: "数量一致", en: "Qty" }, passed: true }], unmatchedStyleNos: [], factoryReplyDate: "2026-12-16", factoryName: "南湖五厂", transportMode: { zh: "中欧班列", en: "Rail" }, ...order },
     styles: [devDone("11506")],
     packagingPlans: [],
     cartons: [],
@@ -259,7 +259,8 @@ describe("mainline engine", () => {
       { styleNo: "11506", state: "DONE" },
       { styleNo: "12810", state: "IN_PROGRESS" },
     ]);
-    expect(n02.summary.zh).toContain("1 / 2 款已完成");
+    expect(n02.summary.zh).toBe("1 / 2 款已完成 · #12810 SP-2610-020 第 2 轮 SMS · 待批复");
+    expect(result.nodes.find((n) => n.code === "N10")!.summary.zh).toBe("中欧班列 · 订舱、出运与收款在此闭环");
     expect(n02.link).toBe("/samples/sp2");
     expect(result.nodes.find((n) => n.code === "N05")!.gate).toBe("G1");
     expect(result.nodes.find((n) => n.code === "N09")!.gate).toBe("G2");

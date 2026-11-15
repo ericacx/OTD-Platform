@@ -12,6 +12,7 @@ import {
   type FlowVersionDto,
   type MigrationPreviewDto,
   type ModuleAssignResult,
+  FORCED_NODES,
   type flowCardQuerySchema,
   type flowCopySchema,
   type flowDiffQuerySchema,
@@ -23,7 +24,7 @@ import {
   type flowRollbackSchema,
 } from "@otd/contracts/flow";
 import { type Database, type DbOrTx, type FlowSnapshot, customerFlowVersions, customerFlows, customerOrders, customers, serviceItems, serviceModules, users } from "@otd/db";
-import { STATUS_MACHINES, statusCodes } from "@otd/shared";
+import { NODES, STATUS_MACHINES, statusCodes } from "@otd/shared";
 import { type SQL, and, asc, desc, eq, ilike, inArray, isNotNull, isNull, ne, notInArray, or } from "drizzle-orm";
 import type { z } from "zod";
 import type { AccessContext } from "../../core/access/access.types.js";
@@ -186,6 +187,13 @@ export class CustomerFlowService {
         modules: draft.modules.map((m) => ({ ...m, items: m.items.map((i) => ({ ...i, effects: catalog.items.get(i.itemCode)!.effects })) })),
         params: effectiveParams(draft.params, customer.paymentTermsDays),
       };
+      const effects = await this.config.effectsFor(snapshot, tx);
+      const runtime = computeRuntime(snapshot, (c) => effects.get(c));
+      const missing = FORCED_NODES.filter((n) => !runtime.nodes.includes(n));
+      if (missing.length) {
+        const labels = missing.map((n) => `${n} ${NODES.find((x) => x.code === n)?.label.zh ?? ""}`.trim());
+        throw new AppError(flowErrors.FLOW_REQUIRED_MODULE_MISSING, { modules: labels.join("、") });
+      }
       await this.publishSnapshot(ctx, tx, emit, customer, flow, snapshot, catalog, { note: input.note ?? null, action: "flow.customer.publish", reason: input.note });
     });
     return this.detail(ctx, customerId);

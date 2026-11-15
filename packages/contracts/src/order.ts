@@ -8,9 +8,12 @@ export const orderErrors = defineErrors({
   ORDER_EXTRACTION_FAILED: { status: 422, zh: "PO 识别失败：{reason}", en: "PO extraction failed: {reason}" },
   ORDER_CUSTOMER_UNRESOLVED: { status: 422, zh: "无法确定 PO 所属客户，请选择客户后重试", en: "Cannot resolve the customer of this PO, please choose one" },
   ORDER_FILE_UNSUPPORTED: { status: 422, zh: "只支持 PDF 或 Excel 格式的 PO 文件", en: "Only PDF or Excel PO files are supported" },
-  ORDER_KEY_FIELD_LOCKED: { status: 409, zh: "订单已确认，数量、交期、明细请走 PO 改版", en: "Order confirmed; change quantity, due date or lines through a PO revision" },
+  ORDER_KEY_FIELD_LOCKED: { status: 409, zh: "订单已确认，交期、币种、贸易术语、付款条款和明细请走 PO 改版", en: "Order confirmed; change due date, currency, trade or payment terms and lines through a PO revision" },
   ORDER_NOT_EDITABLE: { status: 409, zh: "订单当前状态「{status}」不可修改", en: "Order in status {status} cannot be modified" },
 });
+
+export const ORDER_KEY_FIELDS = ["customerDueDate", "currency", "tradeTerm", "paymentTerms", "lines"] as const;
+export type OrderKeyField = (typeof ORDER_KEY_FIELDS)[number];
 
 export const orderStatusSchema = z.enum(["PENDING_CONFIRM", "TO_SCHEDULE", "IN_PRODUCTION", "TO_SHIP", "COMPLETED", "CANCELLED"]);
 export type OrderStatus = z.infer<typeof orderStatusSchema>;

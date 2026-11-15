@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger, type OnModuleInit } from "@nestjs/common";
-import { type SyncCodeMaps, type SyncMappingField, type SyncObject, type SyncProtocol, type SyncRetryResult, type SyncTrigger, isRetryableError, syncErrors, syncRetryDelayMinutes } from "@otd/contracts/sync";
+import { SYNC_AUTO_DISABLE_FAILURES, type SyncCodeMaps, type SyncMappingField, type SyncObject, type SyncProtocol, type SyncRetryResult, type SyncTrigger, isRetryableError, syncErrors, syncRetryDelayMinutes } from "@otd/contracts/sync";
 import { type Database, type DbOrTx, customerOrders, styles, syncBatches, syncEndpoints, syncLinks, syncMappings, syncRecords, syncRuns, syncTasks } from "@otd/db";
 import { and, asc, desc, eq, gt, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { type AccessContext, systemContext } from "../../core/access/access.types.js";
@@ -276,11 +276,33 @@ export class SyncRunner implements OnModuleInit {
         { key: "LOG", at: finishedAt.toISOString(), ok: true, message: "已写回日志" },
       ];
       await tx.update(syncRuns).set({ status, finishedAt, durationMs, ...totals, steps, error }).where(eq(syncRuns.id, run.id));
-      await tx.update(syncTasks).set({ lastRunAt: startedAt, nextRunAt, lastStatus: status, watermark, updatedAt: task.updatedAt }).where(eq(syncTasks.id, taskId));
+      const current = (await tx.select().from(syncTasks).where(eq(syncTasks.id, taskId)))[0]!;
+      const streak = status === "FAILED" ? current.consecutiveFailures + 1 : 0;
+      await tx
+        .update(syncTasks)
+        .set({ lastRunAt: startedAt, nextRunAt, lastStatus: status, watermark, consecutiveFailures: streak, updatedAt: current.updatedAt })
+        .where(eq(syncTasks.id, taskId));
       await this.audit.log(ctx, { action: "sync.run.finish", objectType: "syncTask", objectId: taskId, docNo: task.docNo, diff: { runId: run.id, status, ...totals, error } }, tx);
       emit({ type: "sync.run.finished", aggregateType: "syncTask", aggregateId: taskId, payload: { docNo: task.docNo, runId: run.id, status, ...totals } });
+      if (streak >= SYNC_AUTO_DISABLE_FAILURES && current.enabled) await this.autoDisable(tx, emit, current, streak, finishedAt);
     });
     return run.id;
+  }
+
+  private async autoDisable(tx: DbOrTx, emit: (e: DomainEvent) => void, task: TaskRow, streak: number, at: Date): Promise<void> {
+    await tx
+      .update(syncTasks)
+      .set({ enabled: false, disabledReason: "AUTO_FAILURES", nextRunAt: null, version: task.version + 1, updatedAt: at })
+      .where(eq(syncTasks.id, task.id));
+    await this.audit.log(systemContext(), { action: "sync.task.autoDisable", objectType: "syncTask", objectId: task.id, docNo: task.docNo, diff: { consecutiveFailures: streak, enabled: { from: true, to: false } } }, tx);
+    if (task.ownerId) {
+      await this.notifications.notify(
+        [task.ownerId],
+        { type: "SYNC_TASK_AUTO_DISABLED", title: `${task.docNo} 连续 ${streak} 次执行失败，已自动停用`, body: `${task.name}：排查对端或映射后重新启用`, link: `/sync/tasks/${task.id}` },
+        tx,
+      );
+    }
+    emit({ type: "sync.task.autoDisabled", aggregateType: "syncTask", aggregateId: task.id, payload: { docNo: task.docNo, consecutiveFailures: streak } });
   }
 
   private async evaluate(rt: Runtime, entries: { item: SourceRecord; attempt: number }[], skipUnchanged: boolean): Promise<Outcome[]> {

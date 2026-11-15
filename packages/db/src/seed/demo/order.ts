@@ -4,7 +4,7 @@ import { DEMO_USERS } from "../reference.js";
 import type { SeedContext } from "./context.js";
 
 export const DEMO_ORDERS = [
-  { poNo: "PO0010459", customer: "NSR", season: "AW26", style: "11506", extraStyles: ["12810"], pairs: 37080, dueOffset: 31, factory: "NH5", status: "PENDING_CONFIRM", currency: "USD", unitPrice: 0.925, transport: "RAIL", destination: "Sète, FR", tradeTerm: "FOB Shanghai · Incoterms 2020", styleType: "老款新色" },
+  { poNo: "PO0010459", customer: "NSR", season: "AW26", style: "11506", extraStyles: ["12810"], pairs: 37080, dueOffset: 31, factory: "NH5", status: "PENDING_CONFIRM", currency: "USD", unitPrice: 1.86, transport: "RAIL", destination: "Sète, FR", tradeTerm: "FOB Shanghai · Incoterms 2020", styleType: "老款新色" },
   { poNo: "PO0009631", customer: "MRN", season: "HO26", style: "11151", extraStyles: [], pairs: 12600, dueOffset: 13, factory: "NH5", status: "IN_PRODUCTION", currency: "EUR", unitPrice: 1.86, transport: "OCEAN", destination: "Hamburg, DE", tradeTerm: "FOB Ningbo", styleType: "新款" },
   { poNo: "PO0009412", customer: "BBY", season: "HO26", style: "11152", extraStyles: [], pairs: 8040, dueOffset: 4, factory: "DC1", status: "TO_SHIP", currency: "CNY", unitPrice: 9.8, transport: "EXPRESS", destination: "上海仓", tradeTerm: "DDP", styleType: "老款翻单" },
   { poNo: "PO0009690", customer: "APX", season: "HO26", style: "11063", extraStyles: [], pairs: 9600, dueOffset: 40, factory: "DC2", status: "TO_SCHEDULE", currency: "USD", unitPrice: 1.12, transport: "OCEAN", destination: "Los Angeles, US", tradeTerm: "FOB Shanghai", styleType: "新款" },
@@ -145,18 +145,18 @@ async function seedOrderHistory(ctx: SeedContext, o: DemoOrder, orderId: string,
 
 async function seedOrderTodos(ctx: SeedContext): Promise<void> {
   const items: { po: string; phone: string; fingerprint?: string; action: string; title: string; description: string; offset: number; hour: number }[] = [
-    { po: "PO0010459", phone: "13800000001", fingerprint: "order:review:", action: "order.review", title: "复核客户 PO", description: "北岸运动 · #11506 等 2 款 · 37,080 双 · 规则包待校验", offset: -2, hour: 10 },
-    { po: "PO0009631", phone: "13800000001", action: "order.followProduction", title: "跟进生产进度", description: "晨跑者 · #11151 · 完成率 12% · 交期临近，进度落后", offset: 0, hour: 23 },
-    { po: "PO0010459", phone: "13800000001", action: "order.customerConfirm", title: "登记客户确认", description: "北岸运动 · PO Rev.1 待客户邮件确认", offset: 2, hour: 10 },
-    { po: "PO0009631", phone: "13800000001", action: "order.arrangeInspection", title: "安排尾期验货", description: "晨跑者 · #11151 · 终验须在工厂交期前完成", offset: 5, hour: 10 },
-    { po: "PO0009412", phone: "13800000004", action: "order.confirmBooking", title: "确认订舱", description: "蓝湾生活 · #11152 · 8,040 双待发货", offset: -1, hour: 10 },
-    { po: "PO0009560", phone: "13800000004", action: "order.followProduction", title: "跟进生产进度", description: "枫林户外 · #11720 · 完成率 90%", offset: 0, hour: 23 },
-    { po: "PO0009412", phone: "13800000004", action: "order.prepareDocs", title: "准备出货资料", description: "蓝湾生活 · 装箱单与发票", offset: 3, hour: 10 },
-    { po: "PO0010035", phone: "13800000013", fingerprint: "order:review:", action: "order.review", title: "复核客户 PO", description: "海盐家居 · #12750 · 6,060 双", offset: 1, hour: 10 },
-    { po: "PO0009702", phone: "13800000013", action: "order.followSchedule", title: "跟进排产确认", description: "云栖童装 · #11737 · 待排产", offset: -3, hour: 10 },
-    { po: "PO0009690", phone: "13800000005", action: "order.followSchedule", title: "跟进排产确认", description: "极线 · #11063 · 待排产", offset: 2, hour: 10 },
-    { po: "PO0009560", phone: "13800000012", action: "order.recordProduction", title: "登记生产进度", description: "枫林户外 · #11720 · 东城一厂", offset: -1, hour: 10 },
-    { po: "PO0009631", phone: "13800000012", action: "order.recordProduction", title: "登记生产进度", description: "晨跑者 · #11151 · 南湖五厂", offset: 0, hour: 23 },
+    { po: "PO0010459", phone: "13800000001", fingerprint: "order:review:", action: "order.review", title: "复核客户 PO", description: "#11506 等 2 款 · 37,080 双 · 规则包待校验", offset: -2, hour: 10 },
+    { po: "PO0009631", phone: "13800000001", action: "order.followProduction", title: "跟进生产进度", description: "#11151 · 完成率 12% · 交期临近，进度落后", offset: 0, hour: 10 },
+    { po: "PO0010459", phone: "13800000001", action: "order.customerConfirm", title: "登记客户确认", description: "PO Rev.1 待客户邮件确认", offset: 2, hour: 10 },
+    { po: "PO0009631", phone: "13800000001", action: "order.arrangeInspection", title: "安排尾期验货", description: "#11151 · 终验须在工厂交期前完成", offset: 5, hour: 10 },
+    { po: "PO0009412", phone: "13800000004", action: "order.confirmBooking", title: "确认订舱", description: "#11152 · 8,040 双待发货", offset: -1, hour: 10 },
+    { po: "PO0009560", phone: "13800000004", action: "order.followProduction", title: "跟进生产进度", description: "#11720 · 完成率 90%", offset: 0, hour: 10 },
+    { po: "PO0009412", phone: "13800000004", action: "order.prepareDocs", title: "准备出货资料", description: "装箱单与发票", offset: 3, hour: 10 },
+    { po: "PO0010035", phone: "13800000013", fingerprint: "order:review:", action: "order.review", title: "复核客户 PO", description: "#12750 · 6,060 双", offset: 1, hour: 10 },
+    { po: "PO0009702", phone: "13800000013", action: "order.followSchedule", title: "跟进排产确认", description: "#11737 · 待排产", offset: -3, hour: 10 },
+    { po: "PO0009690", phone: "13800000005", action: "order.followSchedule", title: "跟进排产确认", description: "#11063 · 待排产", offset: 2, hour: 10 },
+    { po: "PO0009560", phone: "13800000012", action: "order.recordProduction", title: "登记生产进度", description: "#11720 · 东城一厂", offset: -1, hour: 10 },
+    { po: "PO0009631", phone: "13800000012", action: "order.recordProduction", title: "登记生产进度", description: "#11151 · 南湖五厂", offset: 0, hour: 10 },
   ];
   for (const it of items) {
     const orderId = ctx.orders[it.po];

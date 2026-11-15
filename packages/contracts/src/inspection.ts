@@ -44,6 +44,8 @@ export const releaseCheckSchema = z.object({
   missing: z.array(z.string()),
   releasable: z.boolean(),
   concessionAvailable: z.boolean(),
+  dailyLimit: z.number().int(),
+  releaseDays: z.number().int(),
 });
 export type ReleaseCheckDto = z.infer<typeof releaseCheckSchema>;
 

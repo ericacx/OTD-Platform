@@ -7,6 +7,7 @@ import {
   cartons,
   customerOrders,
   customers,
+  dictionaries,
   factories,
   handoverPackages,
   inspections,
@@ -301,6 +302,7 @@ export class MainlineService implements OnModuleInit {
     const arRows = await db.select({ id: receivables.id, docNo: receivables.docNo, status: receivables.status, dueDate: receivables.dueDate }).from(receivables).where(arCond);
     const factory = order.factoryId ? (await db.select({ name: factories.name }).from(factories).where(eq(factories.id, order.factoryId)))[0] : undefined;
     const customer = (await db.select({ name: customers.name }).from(customers).where(eq(customers.id, order.customerId)))[0];
+    const transport = order.transportMode ? (await db.select({ label: dictionaries.label }).from(dictionaries).where(and(eq(dictionaries.type, "transportMode"), eq(dictionaries.code, order.transportMode))))[0]?.label ?? { zh: order.transportMode, en: order.transportMode } : null;
 
     const targetIds = [orderId, ...planningRows.map((p) => p.id), ...sampleRows.map((s) => s.id), ...roundRows.map((r) => r.id), ...requestRows.map((r) => r.id), ...reportRows.map((r) => r.id), ...quoteRows.map((q) => q.id), ...qRoundRows.map((r) => r.id), ...handoverRows.map((h) => h.id), ...plans.map((p) => p.id), ...cartonRows.map((c) => c.id), ...purchaseRows.map((p) => p.id), ...inspRows.map((i) => i.id), ...bookingRows.map((b) => b.id), ...shipRows.map((s) => s.id), ...arRows.map((a) => a.id)];
     const hits = await db
@@ -347,7 +349,7 @@ export class MainlineService implements OnModuleInit {
     });
 
     const facts: OrderFacts = {
-      order: { id: order.id, poNo: order.poNo, status: order.status, ruleCheck, unmatchedStyleNos: [...new Set(order.unmatchedLines.map((u) => u.styleNo))], factoryReplyDate: order.factoryReplyDate, factoryName: factory?.name ?? null, transportMode: order.transportMode },
+      order: { id: order.id, poNo: order.poNo, status: order.status, ruleCheck, unmatchedStyleNos: [...new Set(order.unmatchedLines.map((u) => u.styleNo))], factoryReplyDate: order.factoryReplyDate, factoryName: factory?.name ?? null, transportMode: transport },
       styles: styleFacts,
       packagingPlans: plans.map((p) => ({ id: p.id, docNo: p.docNo, status: p.status, confirmed: p.status === "CONFIRMED" || p.effectiveVersion !== null || p.confirmedAt !== null, version: p.effectiveVersion ?? p.currentVersion })),
       cartons: cartonRows,

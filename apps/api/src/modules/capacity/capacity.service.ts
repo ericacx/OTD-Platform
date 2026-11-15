@@ -79,10 +79,11 @@ export class CapacityService {
     return { version: (await this.toVersionDtos([version]))[0]!, kpis: await this.kpis(rows), rows: filtered };
   }
 
-  async summary(): Promise<CapacityVersionDetailDto> {
-    const published = (await this.db.select().from(capacityLedgerVersions).where(eq(capacityLedgerVersions.status, "PUBLISHED")).orderBy(desc(capacityLedgerVersions.versionNo)).limit(1))[0];
-    if (!published) throw notFound("capacityVersion");
-    return this.detail(published.id);
+  async summary(publishedOnly = false): Promise<CapacityVersionDetailDto> {
+    const where = publishedOnly ? eq(capacityLedgerVersions.status, "PUBLISHED") : undefined;
+    const latest = (await this.db.select().from(capacityLedgerVersions).where(where).orderBy(desc(capacityLedgerVersions.versionNo)).limit(1))[0];
+    if (!latest) throw notFound("capacityVersion");
+    return this.detail(latest.id);
   }
 
   async createVersion(ctx: AccessContext, input: z.infer<typeof capacityVersionCreateSchema>): Promise<CapacityVersionDetailDto> {

@@ -15,7 +15,12 @@ export const flowErrors = defineErrors({
   FLOW_VERSION_NOT_CURRENT: { status: 409, zh: "只能迁移到当前发布版本", en: "Orders can only be migrated to the current version" },
   FLOW_RULEPACK_DUPLICATE: { status: 409, zh: "{kind} 已有同范围的规则包", en: "{kind} already has a rule pack for this scope" },
   FLOW_RULEPACK_DEFAULT_LOCKED: { status: 409, zh: "全局默认规则包不能删除", en: "Global default rule packs cannot be deleted" },
+  FLOW_RULEPACK_SNAPSHOT_MISMATCH: { status: 422, zh: "快照与规则包不匹配", en: "Snapshot does not belong to this rule pack" },
+  FLOW_REQUIRED_MODULE_MISSING: { status: 422, zh: "必选服务模块被裁掉：{modules}，不能发布", en: "Mandatory modules were cut: {modules}" },
 });
+
+export const FORCED_NODES = ["N01", "N02", "N05", "N06", "N08", "N10"] as const;
+export type ForcedNode = (typeof FORCED_NODES)[number];
 
 export const FLOW_STATUSES = ["NONE", "DRAFT", "PUBLISHED"] as const;
 export const flowStatusSchema = z.enum(FLOW_STATUSES);
@@ -128,7 +133,7 @@ export const flowParamsSchema = z.object({
   reconciliationDay: z.number().int().min(1).max(28).optional(),
 });
 export type FlowParamsInput = z.infer<typeof flowParamsSchema>;
-export type FlowParams = Required<FlowParamsInput>;
+export type FlowParams = { [K in keyof FlowParamsInput]-?: Exclude<FlowParamsInput[K], undefined> };
 
 export const DEFAULT_FLOW_PARAMS: FlowParams = {
   paymentTermsDays: 60,
@@ -360,3 +365,14 @@ export const effectiveRulePackSchema = z.object({
   overridePackId: z.string().nullable(),
 });
 export type EffectiveRulePackDto = z.infer<typeof effectiveRulePackSchema>;
+
+export const rulePackSnapshotSchema = z.object({
+  id: z.string(),
+  objectVersion: z.number().int(),
+  reason: z.string().nullable(),
+  createdByName: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type RulePackSnapshotDto = z.infer<typeof rulePackSnapshotSchema>;
+
+export const rulePackRollbackSchema = z.object({ snapshotId: z.uuid(), reason: z.string().trim().min(1).max(200) });

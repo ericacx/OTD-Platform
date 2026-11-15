@@ -228,6 +228,17 @@ describe("quotes: permissions and scope", () => {
     expect((await manager.get(`/quotes/${id}`)).status).toBe(200);
   });
 
+  it("lists visible styles for pickers with their quote and handover links", async () => {
+    const sales = await t.as("sales");
+    const options = (await sales.get("/quotes/style-options?keyword=12")).body.data;
+    const byNo = Object.fromEntries(options.map((o: { styleNo: string }) => [o.styleNo, o]));
+    expect(byNo["12593"]).toMatchObject({ customerName: "北岸运动", quoteId: await seededQuoteId("12593") });
+    expect(byNo["12593"].handoverId).toBeTruthy();
+    expect(byNo["12810"]).toMatchObject({ quoteId: null, handoverId: null });
+    expect(byNo["11063"]).toBeUndefined();
+    expect((await (await t.as("planner")).get("/quotes/style-options")).status).toBe(403);
+  });
+
   it("drops cost, margin and internal price fields for callers without quote.cost.view", async () => {
     const admin = await t.as("admin");
     const roles = (await admin.get("/system/roles")).body.data;

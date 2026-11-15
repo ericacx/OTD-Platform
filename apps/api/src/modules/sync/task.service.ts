@@ -177,7 +177,15 @@ export class SyncTaskService {
       const updated = (
         await tx
           .update(syncTasks)
-          .set({ enabled, nextRunAt: this.nextRunAt(before.trigger as SyncTrigger, enabled, before.intervalMinutes), version: before.version + 1, updatedBy: ctx.userId, updatedAt: this.clock.now() })
+          .set({
+            enabled,
+            disabledReason: enabled ? null : "MANUAL",
+            ...(enabled ? { consecutiveFailures: 0 } : {}),
+            nextRunAt: this.nextRunAt(before.trigger as SyncTrigger, enabled, before.intervalMinutes),
+            version: before.version + 1,
+            updatedBy: ctx.userId,
+            updatedAt: this.clock.now(),
+          })
           .where(and(eq(syncTasks.id, id), eq(syncTasks.version, version)))
           .returning({ id: syncTasks.id })
       )[0];
@@ -331,6 +339,8 @@ export class SyncTaskService {
         lastStatus: (r.lastStatus ?? null) as SyncTaskDto["lastStatus"],
         watermark: r.watermark,
         enabled: r.enabled,
+        disabledReason: r.enabled ? null : ((r.disabledReason ?? "MANUAL") as SyncTaskDto["disabledReason"]),
+        consecutiveFailures: r.consecutiveFailures,
         note: r.note,
         openFailures: open.find((o) => o.taskId === r.id)?.n ?? 0,
         createdAt: r.createdAt.toISOString(),

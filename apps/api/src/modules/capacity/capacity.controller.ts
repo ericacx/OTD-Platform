@@ -7,6 +7,7 @@ import {
   capacityRowCreateSchema,
   capacityRowDeleteQuerySchema,
   capacityRowUpdateSchema,
+  capacitySummaryQuerySchema,
   capacityVersionCreateSchema,
   capacityVersionedSchema,
   ledgerTaskCompleteSchema,
@@ -46,8 +47,8 @@ export class CapacityController {
 
   @Get("summary")
   @Permission("capacity.ledger.view")
-  summary() {
-    return this.service.summary();
+  summary(@Query(zod(capacitySummaryQuerySchema)) q: z.infer<typeof capacitySummaryQuerySchema>) {
+    return this.service.summary(q.published === "true");
   }
 
   @Post("versions")

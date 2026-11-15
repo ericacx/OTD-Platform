@@ -30,7 +30,7 @@ export type OrderFacts = {
     unmatchedStyleNos: string[];
     factoryReplyDate: string | null;
     factoryName: string | null;
-    transportMode: string | null;
+    transportMode: Label | null;
   };
   styles: StyleFacts[];
   packagingPlans: { id: string; docNo: string; status: string; confirmed: boolean; version: number }[];
@@ -184,7 +184,7 @@ function aggregate(perStyle: { styleNo: string; p: Part }[], empty: Label): Part
   const styles = perStyle.map((x) => ({ styleNo: x.styleNo, state: x.p.state }));
   if (!perStyle.length) return { ...part("NOT_STARTED", empty), styles };
   const multi = perStyle.length > 1;
-  const prefix = (styleNo: string, l: Label): Label => (multi ? L(`#${styleNo} ${l.zh}`, `#${styleNo} ${l.en}`) : l);
+  const prefix = (styleNo: string, l: Label): Label => (multi && !l.zh.includes(`#${styleNo}`) ? L(`#${styleNo} ${l.zh}`, `#${styleNo} ${l.en}`) : l);
   const blocked = perStyle.filter((x) => x.p.state === "BLOCKED");
   if (blocked.length) {
     const first = blocked[0]!;
@@ -198,7 +198,8 @@ function aggregate(perStyle: { styleNo: string; p: Part }[], empty: Label): Part
   if (perStyle.every((x) => x.p.state === "NOT_STARTED")) return { ...perStyle[0]!.p, summary: prefix(perStyle[0]!.styleNo, perStyle[0]!.p.summary), styles };
   const done = perStyle.filter((x) => isFinished(x.p.state)).length;
   const active = perStyle.find((x) => x.p.state === "IN_PROGRESS") ?? perStyle.find((x) => !isFinished(x.p.state))!;
-  const summary = multi ? L(`${done} / ${perStyle.length} 款已完成 · #${active.styleNo} ${active.p.summary.zh}`, `${done} / ${perStyle.length} styles done · #${active.styleNo} ${active.p.summary.en}`) : active.p.summary;
+  const tail = prefix(active.styleNo, active.p.summary);
+  const summary = multi ? L(`${done} / ${perStyle.length} 款已完成 · ${tail.zh}`, `${done} / ${perStyle.length} styles done · ${tail.en}`) : active.p.summary;
   return { state: "IN_PROGRESS", summary, reasons: [], link: active.p.link, styles };
 }
 
@@ -289,9 +290,9 @@ function n09(f: OrderFacts): Part {
 
 function n10(f: OrderFacts, today: string): Part {
   const o = f.order;
-  const transport = o.transportMode ?? "";
+  const transport = o.transportMode;
   if (o.status === "COMPLETED") return part("DONE", L("全部出货已签收，回款闭环", "All shipments signed and settled"), f.shipments[0] ? `/shipments/${f.shipments[0].id}` : `/receivables`);
-  if (!f.shipments.length && !f.bookings.length) return part("NOT_STARTED", L(`${transport ? `${transport} · ` : ""}订舱、出运与收款在此闭环`, `${transport ? `${transport} · ` : ""}booking, shipping and collection close here`));
+  if (!f.shipments.length && !f.bookings.length) return part("NOT_STARTED", L(`${transport ? `${transport.zh} · ` : ""}订舱、出运与收款在此闭环`, `${transport ? `${transport.en} · ` : ""}booking, shipping and collection close here`));
   const reasons: Label[] = [];
   for (const r of f.receivables) {
     if (!SETTLED.has(r.status) && r.status !== "OFFSET_PENDING" && r.dueDate < today) reasons.push(L(`应收 ${r.docNo} 逾期 ${daysBetween(r.dueDate, today)} 天`, `Receivable ${r.docNo} overdue ${daysBetween(r.dueDate, today)} days`));

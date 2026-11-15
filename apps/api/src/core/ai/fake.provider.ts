@@ -7,14 +7,14 @@ export class FakeAiProvider implements AiProvider {
   readonly name = "fake";
   readonly available = true;
   private readonly extractHandlers = new Map<string, FakeExtractHandler>();
-  private chatHandler: FakeChatHandler | null = null;
+  private readonly chatHandlers = new Map<string, FakeChatHandler>();
 
   onExtract(purpose: string, handler: FakeExtractHandler): void {
     this.extractHandlers.set(purpose, handler);
   }
 
-  onChat(handler: FakeChatHandler): void {
-    this.chatHandler = handler;
+  onChat(purpose: string, handler: FakeChatHandler): void {
+    this.chatHandlers.set(purpose, handler);
   }
 
   async extract<T>(req: AiExtractRequest<T>): Promise<T> {
@@ -24,8 +24,9 @@ export class FakeAiProvider implements AiProvider {
   }
 
   async chat(req: AiChatRequest): Promise<AiChatResult> {
-    if (this.chatHandler) return this.chatHandler(req);
-    const last = req.messages.at(-1)?.content ?? "";
-    return { text: `（离线模式）已收到：${last}`, toolCalls: [] };
+    const handler = this.chatHandlers.get(req.purpose);
+    const result = handler ? await handler(req) : { text: `（离线模式）已收到：${req.messages.at(-1)?.content ?? ""}`, toolCalls: [] };
+    if (result.text) req.onText?.(result.text);
+    return result;
   }
 }

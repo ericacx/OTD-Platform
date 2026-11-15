@@ -199,8 +199,9 @@ describe("flow config", () => {
     await saveDraft(admin, mrn, fullDraft(catalog, ["SM01", "SM02", "SM03", "SM04", "SM05"]));
     const g1 = await publish(admin, mrn);
     expect(g1.status).toBe(422);
-    expect(g1.body.errcode).toBe("FLOW_GATE_EMPTY");
-    expect(g1.body.errParams).toEqual({ gate: "G1" });
+    expect(g1.body.errcode).toBe("FLOW_REQUIRED_MODULE_MISSING");
+    expect(g1.body.errParams.modules).toContain("N01");
+    expect(g1.body.errParams.modules).toContain("N02");
 
     await saveDraft(admin, mrn, fullDraft(catalog, ["SM05", "SM06"], { SM07: ["包装方案确认"] }));
     const g2 = await publish(admin, mrn);
@@ -365,5 +366,43 @@ describe("flow config", () => {
     expect((await gm.post("/flow/rule-packs", { kind: "QUOTE", name: "报价", params: {} })).status).toBe(201);
     const sales = await t.as("sales");
     expect((await sales.get("/flow/rule-packs")).status).toBe(403);
+  });
+
+  it("rolls a rule pack back to a previous snapshot", async () => {
+    t = await createTestApp({ demo: false, now: NOW });
+    const admin = await t.as("admin");
+    const created = await admin.post("/flow/rule-packs", { kind: "RELEASE", name: "放行默认", params: { sameFactorySameDayLimit: 5 } });
+    const id = created.body.data.id;
+    await admin.put(`/flow/rule-packs/${id}`, { kind: "RELEASE", name: "放行默认", params: { sameFactorySameDayLimit: 3 }, version: 1, reason: "临时收紧" });
+    const snaps = (await admin.get(`/flow/rule-packs/${id}/snapshots`)).body.data;
+    expect(snaps).toHaveLength(1);
+    expect(snaps[0].reason).toBe("临时收紧");
+    expect(snaps[0].createdByName).toBeTruthy();
+
+    const missing = await admin.post(`/flow/rule-packs/${id}/rollback`, { snapshotId: "00000000-0000-0000-0000-000000000000", reason: "x" });
+    expect(missing.status).toBe(404);
+    const sales = await t.as("sales");
+    expect((await sales.post(`/flow/rule-packs/${id}/rollback`, { snapshotId: snaps[0].id, reason: "x" })).status).toBe(403);
+
+    const rb = await admin.post(`/flow/rule-packs/${id}/rollback`, { snapshotId: snaps[0].id, reason: "恢复原参数" });
+    expect(rb.status).toBe(200);
+    expect(rb.body.data.params).toEqual({ sameFactorySameDayLimit: 5 });
+    expect(rb.body.data.version).toBe(3);
+    expect((await admin.get(`/flow/rule-packs/${id}/snapshots`)).body.data).toHaveLength(2);
+    expect((await admin.get("/system/audit-logs?action=flow.rulepack.rollback")).body.data.total).toBe(1);
+  });
+
+  it("refuses to publish when a mandatory module is cut", async () => {
+    t = await createTestApp({ demo: false, now: NOW });
+    const admin = await t.as("admin");
+    const catalog = await catalogOf(admin);
+    const mrn = t.refs.customers.MRN!;
+    await saveDraft(admin, mrn, fullDraft(catalog, ["SM01", "SM10", "SM11"]));
+    const res = await publish(admin, mrn);
+    expect(res.status).toBe(422);
+    expect(res.body.errcode).toBe("FLOW_REQUIRED_MODULE_MISSING");
+    expect(res.body.errParams.modules).toContain("N01");
+    expect(res.body.errParams.modules).toContain("N10");
+    expect((await admin.get(`/flow/customers/${mrn}/versions`)).body.data).toHaveLength(0);
   });
 });

@@ -1,8 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { Page } from "@otd/contracts/common";
-import { type EffectiveRulePackDto, RULE_KINDS, type RuleKind, type RulePackDto, flowErrors, type rulePackListQuerySchema, type rulePackUpsertSchema } from "@otd/contracts/flow";
-import { type Database, type DbOrTx, customers, rulePacks } from "@otd/db";
-import { type SQL, and, asc, eq, ilike, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
+import { type EffectiveRulePackDto, RULE_KINDS, type RuleKind, type RulePackDto, type RulePackSnapshotDto, flowErrors, type rulePackListQuerySchema, type rulePackRollbackSchema, type rulePackUpsertSchema } from "@otd/contracts/flow";
+import { type Database, type DbOrTx, changeSnapshots, customers, rulePacks, users } from "@otd/db";
+import { type SQL, and, asc, desc, eq, ilike, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import type { z } from "zod";
 import { type AccessContext, canSeeCustomer } from "../../core/access/access.types.js";
 import { customerScoped } from "../../core/access/scope.js";
@@ -101,6 +101,42 @@ export class RulePackService {
       await tx.delete(rulePacks).where(eq(rulePacks.id, id));
       await this.audit.log(ctx, { action: "flow.rulepack.delete", objectType: "rulePack", objectId: id, docNo: before.code }, tx);
     });
+  }
+
+  async snapshots(ctx: AccessContext, id: string): Promise<RulePackSnapshotDto[]> {
+    const row = assertFound((await this.db.select().from(rulePacks).where(eq(rulePacks.id, id)))[0]);
+    if (!canSeeCustomer(ctx, row.customerId)) throw notFound();
+    const rows = await this.db
+      .select({ s: changeSnapshots, name: users.name })
+      .from(changeSnapshots)
+      .leftJoin(users, eq(users.id, changeSnapshots.createdBy))
+      .where(and(eq(changeSnapshots.objectType, "rulePack"), eq(changeSnapshots.objectId, id)))
+      .orderBy(desc(changeSnapshots.createdAt));
+    return rows.map(({ s, name }) => ({ id: s.id, objectVersion: s.objectVersion, reason: s.reason, createdByName: name, createdAt: s.createdAt.toISOString() }));
+  }
+
+  async rollback(ctx: AccessContext, id: string, input: z.infer<typeof rulePackRollbackSchema>): Promise<RulePackDto> {
+    const row = await this.db.transaction(async (tx) => {
+      const snap = assertFound((await tx.select().from(changeSnapshots).where(eq(changeSnapshots.id, input.snapshotId)))[0]);
+      if (snap.objectType !== "rulePack" || snap.objectId !== id) throw new AppError(flowErrors.FLOW_RULEPACK_SNAPSHOT_MISMATCH);
+      const before = assertFound((await tx.select().from(rulePacks).where(eq(rulePacks.id, id)))[0]);
+      if (!canSeeCustomer(ctx, before.customerId)) throw notFound();
+      const state = snap.snapshot as { name?: string; params?: Record<string, unknown>; enabled?: boolean; description?: string | null };
+      await this.audit.snapshot(ctx, "rulePack", id, before.version, { name: before.name, params: before.params, enabled: before.enabled, description: before.description }, `rollback:${input.snapshotId} ${input.reason}`, tx);
+      const patch: Record<string, unknown> = {};
+      if (state.name !== undefined) patch.name = state.name;
+      if (state.params !== undefined) patch.params = state.params;
+      if (state.enabled !== undefined) patch.enabled = state.enabled;
+      if (state.description !== undefined) patch.description = state.description;
+      const updated = (await tx.update(rulePacks).set({ ...patch, version: before.version + 1, updatedBy: ctx.userId }).where(eq(rulePacks.id, id)).returning())[0]!;
+      await this.audit.log(
+        ctx,
+        { action: "flow.rulepack.rollback", objectType: "rulePack", objectId: id, docNo: before.code, diff: { snapshotId: { from: null, to: input.snapshotId }, reason: { from: null, to: input.reason }, ...diffOf(before, patch) } },
+        tx,
+      );
+      return updated;
+    });
+    return (await this.toDtos([row]))[0]!;
   }
 
   private async assertScopeFree(tx: DbOrTx, kind: RuleKind, customerId: string | null, exceptId?: string): Promise<void> {

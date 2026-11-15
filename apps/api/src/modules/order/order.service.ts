@@ -1,6 +1,7 @@
 import { Inject, Injectable, type OnModuleInit } from "@nestjs/common";
 import type { Page } from "@otd/contracts/common";
 import {
+  ORDER_KEY_FIELDS,
   type OrderDetail,
   type OrderListItem,
   type OrderStatus,
@@ -230,7 +231,8 @@ export class OrderService implements OnModuleInit {
       const before = await this.lockRow(ctx, tx, id, input.version);
       if (!EDITABLE.has(before.status)) throw new AppError(orderErrors.ORDER_NOT_EDITABLE, { status: statusLabel("order", before.status).zh });
       const { version: _v, lines, ...rest } = input;
-      if (before.status !== "PENDING_CONFIRM" && (lines || (rest.customerDueDate && rest.customerDueDate !== before.customerDueDate))) throw new AppError(orderErrors.ORDER_KEY_FIELD_LOCKED);
+      const keyChanged = ORDER_KEY_FIELDS.some((key) => (key === "lines" ? lines !== undefined : rest[key] !== undefined && rest[key] !== before[key]));
+      if (before.status !== "PENDING_CONFIRM" && keyChanged) throw new AppError(orderErrors.ORDER_KEY_FIELD_LOCKED);
       const patch = pickFields(rest);
       if (lines) {
         await this.assertStyles(tx, before.customerId, lines);

@@ -14,8 +14,9 @@ export const syncErrors = defineErrors({
 
 export const SYNC_PLATFORM_NAME = { zh: "OTD 平台", en: "OTD Platform" } as const;
 export const SYNC_MAX_RETRIES = 5;
-export const SYNC_RETRY_DELAYS_MINUTES = [1, 2, 4, 8, 16] as const;
+export const SYNC_RETRY_DELAYS_MINUTES = [1, 5, 30, 120, 720] as const;
 export const SYNC_DEFAULT_BATCH_SIZE = 100;
+export const SYNC_AUTO_DISABLE_FAILURES = 3;
 
 export const syncEndpointKindSchema = z.enum(["ERP", "CUSTOMER"]);
 export type SyncEndpointKind = z.infer<typeof syncEndpointKindSchema>;
@@ -36,6 +37,8 @@ export const syncRecordStatusSchema = z.enum(["SUCCESS", "FAILED", "SKIPPED", "R
 export type SyncRecordStatus = z.infer<typeof syncRecordStatusSchema>;
 export const syncQueueStateSchema = z.enum(["PENDING", "MANUAL", "ABANDONED"]);
 export type SyncQueueState = z.infer<typeof syncQueueStateSchema>;
+export const syncDisabledReasonSchema = z.enum(["AUTO_FAILURES", "MANUAL"]);
+export type SyncDisabledReason = z.infer<typeof syncDisabledReasonSchema>;
 export const syncStepKeySchema = z.enum(["START", "RESULT", "LOG"]);
 
 export const syncErrorTypeSchema = z.enum(["TIMEOUT", "REMOTE_UNAVAILABLE", "CONNECTION_FAILED", "FORMAT_MISMATCH", "MAPPING_MISS", "REQUIRED_MISSING", "REMOTE_REJECTED", "UNSUPPORTED"]);
@@ -339,6 +342,8 @@ export const syncTaskSchema = z.object({
   lastStatus: syncRunStatusSchema.nullable(),
   watermark: z.string().nullable(),
   enabled: z.boolean(),
+  disabledReason: syncDisabledReasonSchema.nullable(),
+  consecutiveFailures: z.number().int(),
   note: z.string().nullable(),
   openFailures: z.number().int(),
   createdAt: z.string(),

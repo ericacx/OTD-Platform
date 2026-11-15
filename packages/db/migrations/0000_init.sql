@@ -1442,6 +1442,11 @@ CREATE TABLE "ai_usage" (
 	"model" text NOT NULL,
 	"input_tokens" integer DEFAULT 0 NOT NULL,
 	"output_tokens" integer DEFAULT 0 NOT NULL,
+	"cache_read_tokens" integer DEFAULT 0 NOT NULL,
+	"cache_write_tokens" integer DEFAULT 0 NOT NULL,
+	"stop_reason" text,
+	"duration_ms" integer,
+	"request_id" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -1688,6 +1693,8 @@ CREATE TABLE "sync_tasks" (
 	"last_status" text,
 	"watermark" text,
 	"enabled" boolean DEFAULT true NOT NULL,
+	"consecutive_failures" integer DEFAULT 0 NOT NULL,
+	"disabled_reason" text,
 	"note" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"created_by" uuid,

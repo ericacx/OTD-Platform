@@ -11,7 +11,10 @@ type BetaToolResultBlockParam = Anthropic.Beta.BetaToolResultBlockParam;
 
 export const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 const MAX_TOOL_TURNS = 8;
+const MAX_UNPARSEABLE_RETRIES = 2;
 const DROP_BEFORE_FALLBACK = new Set(["thinking", "redacted_thinking", "tool_use"]);
+
+type StreamLike = { finalMessage: () => Promise<BetaMessage>; readonly request_id?: string | null | undefined };
 
 export type ClaudeProviderOptions = { model: string; extractMaxTokens?: number; chatMaxTokens?: number };
 
@@ -36,18 +39,16 @@ export class ClaudeAiProvider implements AiProvider {
     content.push({ type: "text", text: req.text?.trim() ? req.text : "请按要求抽取上面原件中的要素。" });
     const message = await this.call(
       () =>
-        this.client.beta.messages
-          .stream({
-            model: this.options.model,
-            max_tokens: this.options.extractMaxTokens ?? 32000,
-            betas: [FALLBACK_BETA],
-            fallbacks: "default",
-            thinking: { type: "adaptive" },
-            output_config: { effort: "medium", format: { type: "json_schema", schema: format.schema } },
-            system: req.instructions,
-            messages: [{ role: "user", content }],
-          })
-          .finalMessage(),
+        this.client.beta.messages.stream({
+          model: this.options.model,
+          max_tokens: this.options.extractMaxTokens ?? 32000,
+          betas: [FALLBACK_BETA],
+          fallbacks: "default",
+          thinking: { type: "adaptive" },
+          output_config: { effort: "medium", format: { type: "json_schema", schema: format.schema } },
+          system: req.instructions,
+          messages: [{ role: "user", content }],
+        }),
       req.purpose,
       req.userId,
     );
@@ -66,32 +67,18 @@ export class ClaudeAiProvider implements AiProvider {
   }
 
   async chat(req: AiChatRequest): Promise<AiChatResult> {
-    const tools = (req.tools ?? []).map((t) => ({ name: t.name, description: t.description, input_schema: t.inputSchema as Anthropic.Beta.BetaTool.InputSchema }));
+    const tools = (req.tools ?? []).map((t) => ({ name: t.name, description: t.description, input_schema: t.inputSchema as Anthropic.Beta.BetaTool.InputSchema, eager_input_streaming: true }));
     const byName = new Map((req.tools ?? []).map((t) => [t.name, t]));
     const messages: BetaMessageParam[] = req.messages.map((m) => ({ role: m.role, content: m.content }));
     const toolCalls: AiChatResult["toolCalls"] = [];
     for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
-      const message = await this.call(
-        () =>
-          this.client.beta.messages.create({
-            model: this.options.model,
-            max_tokens: this.options.chatMaxTokens ?? 16000,
-            betas: [FALLBACK_BETA],
-            fallbacks: "default",
-            thinking: { type: "adaptive" },
-            output_config: { effort: "medium" },
-            system: req.system,
-            messages,
-            ...(tools.length ? { tools } : {}),
-          }),
-        req.purpose,
-        req.userId,
-      );
+      const message = await this.chatTurn(req, messages, tools);
       if (message.stop_reason === "refusal") return { text: "抱歉，这个请求我无法处理。", toolCalls };
       const content = echoable(message.content);
+      const uses = content.filter((b): b is BetaToolUseBlock => b.type === "tool_use");
+      if (message.stop_reason === "max_tokens" && uses.length) return { text: "回答超过长度上限，请缩小问题范围后重试。", toolCalls };
       messages.push({ role: "assistant", content });
       if (message.stop_reason === "pause_turn") continue;
-      const uses = content.filter((b): b is BetaToolUseBlock => b.type === "tool_use");
       if (message.stop_reason !== "tool_use" || !uses.length) return { text: textOf(message.content), toolCalls };
       const results = await Promise.all(
         uses.map(async (use): Promise<BetaToolResultBlockParam> => {
@@ -114,21 +101,61 @@ export class ClaudeAiProvider implements AiProvider {
     return { text: "工具调用次数超过上限，请缩小问题范围后重试。", toolCalls };
   }
 
-  private async call(run: () => Promise<BetaMessage>, purpose: string, userId: string | undefined): Promise<BetaMessage> {
+  private async chatTurn(req: AiChatRequest, messages: BetaMessageParam[], tools: Anthropic.Beta.BetaTool[]): Promise<BetaMessage> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.call(
+          () => {
+            const stream = this.client.beta.messages.stream({
+              model: this.options.model,
+              max_tokens: this.options.chatMaxTokens ?? 64000,
+              betas: [FALLBACK_BETA],
+              fallbacks: "default",
+              thinking: { type: "adaptive" },
+              output_config: { effort: "medium" },
+              cache_control: { type: "ephemeral" },
+              system: req.system,
+              messages,
+              ...(tools.length ? { tools } : {}),
+            });
+            if (req.onText) stream.on("text", (delta) => req.onText?.(delta));
+            return stream;
+          },
+          req.purpose,
+          req.userId,
+        );
+      } catch (err) {
+        if (err instanceof AiProviderError || attempt >= MAX_UNPARSEABLE_RETRIES) throw err;
+      }
+    }
+  }
+
+  private async call(open: () => StreamLike, purpose: string, userId: string | undefined): Promise<BetaMessage> {
+    const started = performance.now();
     let message: BetaMessage;
+    let requestId: string | null | undefined;
     try {
-      message = await run();
+      const stream = open();
+      message = await stream.finalMessage();
+      requestId = stream.request_id;
     } catch (err) {
       if (err instanceof Anthropic.APIError) throw new AiProviderError(`AI 服务调用失败（${err.status ?? "network"}）：${err.message}`, "api_error");
       throw err;
     }
     const u = message.usage;
+    const cacheRead = u.cache_read_input_tokens ?? 0;
+    const cacheWrite = u.cache_creation_input_tokens ?? 0;
     this.sink?.({
       purpose,
       model: message.model ?? this.options.model,
       ...(userId ? { userId } : {}),
-      inputTokens: (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0),
+      inputTokens: (u.input_tokens ?? 0) + cacheWrite + cacheRead,
       outputTokens: u.output_tokens ?? 0,
+      cacheReadTokens: cacheRead,
+      cacheWriteTokens: cacheWrite,
+      ...(message.stop_reason ? { stopReason: message.stop_reason } : {}),
+      durationMs: Math.round(performance.now() - started),
+      ...(requestId ? { requestId } : {}),
     });
     return message;
   }

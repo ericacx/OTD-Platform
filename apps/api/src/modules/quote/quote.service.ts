@@ -12,6 +12,7 @@ import {
   type QuoteStrategyDto,
   type StrategyParams,
   type StrategySnapshotDto,
+  type StyleOptionDto,
   QUOTE_FEEDBACK_DAYS,
   type costItemInputSchema,
   type quoteCreateSchema,
@@ -21,6 +22,7 @@ import {
   type quoteRoundCreateSchema,
   type quoteStrategyUpsertSchema,
   type quoteUpdateSchema,
+  type styleOptionQuerySchema,
   quoteErrors,
 } from "@otd/contracts/quote";
 import {
@@ -168,6 +170,33 @@ export class QuoteService implements OnModuleInit {
       async () => (await this.db.select({ n: countAll }).from(quotes).where(where))[0]!.n,
       async (limit, offset) => this.toListItems(ctx, await this.db.select().from(quotes).where(where).orderBy(desc(quotes.updatedAt)).limit(limit).offset(offset)),
     );
+  }
+
+  async styleOptions(ctx: AccessContext, q: z.infer<typeof styleOptionQuerySchema>): Promise<StyleOptionDto[]> {
+    const conds: SQL[] = [scoped(styles, ctx)];
+    if (q.customerId) conds.push(eq(styles.customerId, q.customerId));
+    const kw = likeKeyword(q.keyword);
+    if (kw) conds.push(or(ilike(styles.styleNo, kw), ilike(styles.nameZh, kw), ilike(styles.nameEn, kw))!);
+    const rows = await this.db.select().from(styles).where(and(...conds)).orderBy(asc(styles.styleNo)).limit(q.limit);
+    if (!rows.length) return [];
+    const ids = rows.map((r) => r.id);
+    const [quoteRows, handoverRows, custRows] = await Promise.all([
+      this.db.select({ id: quotes.id, styleId: quotes.styleId }).from(quotes).where(inArray(quotes.styleId, ids)),
+      this.db.select({ id: handoverPackages.id, styleId: handoverPackages.styleId }).from(handoverPackages).where(inArray(handoverPackages.styleId, ids)),
+      this.db.select({ id: customers.id, name: customers.name }).from(customers).where(inArray(customers.id, [...new Set(rows.map((r) => r.customerId))])),
+    ]);
+    return rows.map((r) => ({
+      id: r.id,
+      styleNo: r.styleNo,
+      nameZh: r.nameZh,
+      nameEn: r.nameEn,
+      seasonCode: r.seasonCode,
+      productCode: r.productCode,
+      customerId: r.customerId,
+      customerName: custRows.find((c) => c.id === r.customerId)?.name ?? "",
+      quoteId: quoteRows.find((x) => x.styleId === r.id)?.id ?? null,
+      handoverId: handoverRows.find((x) => x.styleId === r.id)?.id ?? null,
+    }));
   }
 
   async get(ctx: AccessContext, id: string): Promise<QuoteDto> {

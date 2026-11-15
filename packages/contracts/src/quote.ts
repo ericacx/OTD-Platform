@@ -303,3 +303,23 @@ export const quotePreviewResultSchema = z.object({
   check: quoteCheckSchema.nullable(),
 });
 export type QuotePreviewDto = z.infer<typeof quotePreviewResultSchema>;
+
+export const styleOptionQuerySchema = z.object({
+  keyword: z.string().trim().optional(),
+  customerId: z.uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+});
+
+export const styleOptionSchema = z.object({
+  id: z.string(),
+  styleNo: z.string(),
+  nameZh: z.string(),
+  nameEn: z.string().nullable(),
+  seasonCode: z.string().nullable(),
+  productCode: z.string().nullable(),
+  customerId: z.string(),
+  customerName: z.string(),
+  quoteId: z.string().nullable(),
+  handoverId: z.string().nullable(),
+});
+export type StyleOptionDto = z.infer<typeof styleOptionSchema>;

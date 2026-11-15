@@ -106,6 +106,7 @@ export type CapacityCompareDto = z.infer<typeof capacityCompareSchema>;
 export const capacityVersionCreateSchema = z.object({ asOfDate: dateSchema.optional(), note: z.string().trim().max(300).nullable().optional() });
 export const capacityVersionedSchema = z.object({ version: z.number().int() });
 export const capacityDetailQuerySchema = z.object({ keyword: z.string().trim().optional(), ledger: ledgerSchema.optional() });
+export const capacitySummaryQuerySchema = z.object({ published: z.enum(["true", "false"]).optional() });
 export const capacityCompareQuerySchema = z.object({ from: z.uuid(), to: z.uuid() });
 
 export const capacityRowUpdateSchema = z.object({

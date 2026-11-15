@@ -1,4 +1,4 @@
-import { customerOrders, notifications, rolePermissions, roles, styles, syncEndpoints, syncRecords, syncRuns, syncTasks } from "@otd/db";
+import { customerOrders, domainEvents, notifications, rolePermissions, roles, styles, syncEndpoints, syncRecords, syncRuns, syncTasks } from "@otd/db";
 import { and, eq, ne } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AccessService } from "../../core/access/access.service.js";
@@ -251,10 +251,10 @@ describe("sync runs", () => {
     expect(current.attempts).toBe(1);
     expect(current.nextRetryAt!.getTime() - Date.parse(NOW)).toBe(1 * MIN);
     for (const [attempts, delay] of [
-      [2, 2],
-      [3, 4],
-      [4, 8],
-      [5, 16],
+      [2, 5],
+      [3, 30],
+      [4, 120],
+      [5, 720],
     ] as const) {
       const at = current.nextRetryAt!;
       t.clock.set(new Date(at.getTime() - 1000));
@@ -401,5 +401,69 @@ describe("sync runs", () => {
     await bus.publish([{ type: "testing.request.completed", aggregateType: "testRequest", aggregateId: nsrStyle.id, payload: { styleId: nsrStyle.id } }]);
     const runs = await t.db.select().from(syncRuns).where(eq(syncRuns.taskId, task.id));
     expect(runs.map((r) => [r.trigger, r.status])).toEqual([["EVENT", "SUCCESS"]]);
+  });
+});
+
+describe("sync auto-disable", () => {
+  async function downEndpoint(admin: Caller, code: string) {
+    return mockEndpoint(admin, code, { down: true });
+  }
+
+  async function setDown(admin: Caller, ep: { id: string }, down: boolean) {
+    const current = (await admin.get(`/sync/endpoints/${ep.id}`)).body.data;
+    const res = await admin.put(`/sync/endpoints/${ep.id}`, { name: current.name, kind: current.kind, protocol: current.protocol, options: { mock: { down } }, version: current.version });
+    expect(res.status).toBe(200);
+  }
+
+  it("disables a task after three consecutive failed runs and notifies the owner", async () => {
+    const admin = await t.as("admin");
+    const ep = await downEndpoint(admin, "ERP-F1");
+    const task = await pushTask(admin, ep.id, { trigger: "SCHEDULED", intervalMinutes: 30 });
+    for (let i = 1; i <= 2; i++) {
+      const res = (await admin.post(`/sync/tasks/${task.id}/run`, { version: task.version })).body.data;
+      expect(res).toMatchObject({ lastStatus: "FAILED", enabled: true, consecutiveFailures: i, disabledReason: null, version: task.version });
+    }
+    const third = (await admin.post(`/sync/tasks/${task.id}/run`, { version: task.version })).body.data;
+    expect(third).toMatchObject({ lastStatus: "FAILED", enabled: false, disabledReason: "AUTO_FAILURES", consecutiveFailures: 3, nextRunAt: null, version: task.version + 1 });
+
+    const note = (await t.db.select().from(notifications).where(eq(notifications.userId, admin.userId))).find((n) => n.type === "SYNC_TASK_AUTO_DISABLED");
+    expect(note).toMatchObject({ link: `/sync/tasks/${task.id}` });
+    expect(note!.title).toContain(task.docNo);
+    const logs = (await admin.get(`/sync/tasks/${task.id}/logs`)).body.data.items;
+    expect(logs.find((l: { action: string }) => l.action === "sync.task.autoDisable")).toMatchObject({ userName: "system", summary: "连续 3 次执行失败，已自动停用任务" });
+    const events = await t.db.select().from(domainEvents).where(and(eq(domainEvents.type, "sync.task.autoDisabled"), eq(domainEvents.aggregateId, task.id)));
+    expect(events).toHaveLength(1);
+    expect((await admin.post(`/sync/tasks/${task.id}/run`, { version: third.version })).body.errcode).toBe("SYNC_TASK_DISABLED");
+
+    const enabled = (await admin.post(`/sync/tasks/${task.id}/enable`, { version: third.version })).body.data;
+    expect(enabled).toMatchObject({ enabled: true, disabledReason: null, consecutiveFailures: 0 });
+    const again = (await admin.post(`/sync/tasks/${task.id}/run`, { version: enabled.version })).body.data;
+    expect(again).toMatchObject({ lastStatus: "FAILED", enabled: true, consecutiveFailures: 1 });
+  });
+
+  it("keeps the task enabled when a successful run breaks the streak", async () => {
+    const admin = await t.as("admin");
+    const ep = await downEndpoint(admin, "ERP-F2");
+    const task = await pushTask(admin, ep.id);
+    const run = async () => (await admin.post(`/sync/tasks/${task.id}/run`, { version: task.version })).body.data;
+    await run();
+    await run();
+    await setDown(admin, ep, false);
+    expect(await run()).toMatchObject({ lastStatus: "SUCCESS", consecutiveFailures: 0 });
+    await setDown(admin, ep, true);
+    await t.db.update(customerOrders).set({ updatedAt: new Date("2030-01-01T00:00:00Z") });
+    expect(await run()).toMatchObject({ lastStatus: "FAILED", consecutiveFailures: 1 });
+    const last = await run();
+    expect(last).toMatchObject({ lastStatus: "FAILED", enabled: true, consecutiveFailures: 2, disabledReason: null });
+    const notes = (await t.db.select().from(notifications).where(eq(notifications.userId, admin.userId))).filter((n) => n.type === "SYNC_TASK_AUTO_DISABLED");
+    expect(notes).toHaveLength(0);
+  });
+
+  it("marks manual disables with their reason", async () => {
+    const admin = await t.as("admin");
+    const ep = await mockEndpoint(admin, "ERP-F3");
+    const task = await pushTask(admin, ep.id);
+    const disabled = (await admin.post(`/sync/tasks/${task.id}/disable`, { version: task.version })).body.data;
+    expect(disabled).toMatchObject({ enabled: false, disabledReason: "MANUAL" });
   });
 });

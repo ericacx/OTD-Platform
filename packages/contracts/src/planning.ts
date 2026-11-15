@@ -212,3 +212,21 @@ export const planningListQuerySchema = pageQuerySchema.extend({
   category: z.string().optional(),
   customerId: z.uuid().optional(),
 });
+
+export const styleOptionSchema = z.object({
+  id: z.string(),
+  styleNo: z.string(),
+  nameZh: z.string(),
+  nameEn: z.string().nullable(),
+  seasonCode: z.string().nullable(),
+  productCode: z.string().nullable(),
+  customerId: z.string(),
+  customerName: z.string(),
+});
+export type StyleOptionDto = z.infer<typeof styleOptionSchema>;
+
+export const styleListQuerySchema = z.object({
+  keyword: z.string().trim().optional(),
+  customerId: z.uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
