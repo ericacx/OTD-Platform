@@ -12,7 +12,7 @@
 | P2 后端模块 | 26 个业务模块（planning → sync）全部实现 + 接口测试 | ✅ 385 条通过 |
 | P3 前端页面 | 全部模块页面 + 路由 + i18n + MSW | ✅ 135 条通过 |
 | P4 集成增强 | 悬浮助手、全局搜索、SSE 流式、通知铃铛、AI 用量 | ✅ |
-| P5 收尾 | 订单三界面补齐、flow 四缺口、全量验收、迁移重建、推送 | 🔄 进行中 |
+| P5 收尾 | 订单三界面补齐、flow 四缺口、全量验收、迁移重建、推送 | ✅（仅剩推送，等远端地址） |
 
 ## 模块完成度
 
@@ -53,11 +53,13 @@
 | 2 | flow：模块删除界面 | ✅ | 模块配置页删除按钮 + 二次确认 + FLOW_CATALOG_IN_USE 错误展示（rule-pack 同款模式） |
 | 3 | flow：规则包改动可回退 | ✅ | 快照早已写入（update/remove 时 audit.snapshot）；补 GET snapshots / POST rollback 接口 + 版本记录 sheet + 回退测试 |
 | 4 | flow：发布时校验必选模块 | ✅ | FORCED_NODES（N01/N02/N05/N06/N08/N10）+ FLOW_REQUIRED_MODULE_MISSING 422；前端发布按钮旁提示缺失模块并禁用 |
-| 5 | 全量测试 + 迁移重建 | ⬜ | 交付后统一跑；测试库按当前 schema 现生成 |
-| 6 | 真实 PostgreSQL 验证 + e2e 冒烟 | ⬜ | Chromium 已装好；infra:up 55432 端口 |
-| 7 | 浏览器走通订单主线 | ⬜ | 上传 PO → 确认 → 排产 → … → 出货全程 |
-| 8 | 技术方案错误码表按代码重写 | ⬜ | 04-技术方案.md |
-| 9 | 推送远端仓库 | ⬜ | ericacx 私有仓库 |
+| 5 | 全量测试 + 迁移重建 | ✅ | 重建 0000_init（92 表）；shared 14 / db 4 / API 387 / Web 141 / e2e 1 全过 |
+| 6 | 真实 PostgreSQL 验证 + e2e 冒烟 | ✅ | docker PG18(55432)：AUTO_MIGRATE+AUTO_SEED 启动、登录 / 订单 / 待办 / 权限 403 全部正确；Playwright 冒烟过（todo mock 问候语已改为跟随会话用户） |
+| 7 | 浏览器走通订单主线 | ✅ | 王芳登录 → 待办 → PO0010459 详情 → 编辑（存备注）→ 例外确认 → 待排产 → 生产中 → PO 改版 Rev.2（交期 12-16→12-23，改版记录落库）→ 十节点监控实时反映 |
+| 8 | 技术方案错误码表按代码重写 | ✅ | §6.6 按契约实际 123 个错误码重建（旧表含未实现码） |
+| 9 | 推送远端仓库 | ⏸ | 本地 git 未配置 remote——需要仓库地址后 `git remote add origin … && git push -u origin main` |
+
+全部工作已按 后端 / 前端 / 文档 分三个提交落在 main（eb8f448、0260a43、c283114 + docs 对齐提交）。
 
 ## 已知次要缺口（可延后）
 
@@ -67,6 +69,7 @@
 
 ## 最近更新
 
+- 2026-11-15 18:05：P5 收尾完成——迁移重建（92 表）并真实 PG18 全链路验证；e2e 冒烟过（顺手修 todo mock 问候语写死王芳的问题）；浏览器走通订单主线（含新做的编辑 / 改版）；技术方案错误码表按 123 个实际码重建；全部提交 main。唯一遗留：远端仓库未配置，拿到地址后推送。
 - 2026-11-15 17:45：C1 三缺口完成——①模块删除 UI（二次确认 + 占用错误显示）；②规则包快照回退（snapshots/rollback 接口 + 版本记录 sheet + 管理员回退测试）；③发布校验必选节点 FORCED_NODES（422 FLOW_REQUIRED_MODULE_MISSING + 前端提示并禁用发布）。API 387 / Web 141 全过，typecheck / lint 0 错。
 - 2026-11-15 17:30：B3 收尾完成——订单编辑 / PO 改版 / 手工新建三个界面全部接线（order-form-dialog.tsx、order-form.types.ts、order-lines-editor 复用、MSW 三个新 handler、中英文案、4 条新测试）。Web 138 条全过，typecheck / lint 0 错。
 - 2026-11-15 17:15：接手续建。修复 web typecheck 8 错（order.json 补 6 个 i18n key、sync mock 补 disabledReason/consecutiveFailures）。基线：API 385 / Web 135 测试全过，API + Web typecheck 0 错。
