@@ -146,7 +146,7 @@ export const STATUS_MACHINES = {
       PENDING_CUSTOMER: s("待客户确认", "Awaiting customer", "warning"),
       CONFIRMED: s("已确认", "Confirmed", "success"),
     },
-    transitions: { DRAFT: ["PENDING_CUSTOMER"], PENDING_CUSTOMER: ["CONFIRMED", "DRAFT"] },
+    transitions: { DRAFT: ["PENDING_CUSTOMER"], PENDING_CUSTOMER: ["CONFIRMED", "DRAFT"], CONFIRMED: ["DRAFT"] },
   }),
   carton: machine({
     label: { zh: "装箱单", en: "Carton list" },
@@ -237,7 +237,16 @@ export const STATUS_MACHINES = {
       DONE: s("已完成", "Done", "success"),
       OVERDUE: s("已逾期", "Overdue", "danger"),
     },
-    transitions: { PENDING: ["UPDATING", "OVERDUE"], OVERDUE: ["UPDATING"], UPDATING: ["DONE"], DONE: ["PENDING"] },
+    transitions: { PENDING: ["UPDATING", "OVERDUE"], OVERDUE: ["UPDATING"], UPDATING: ["DONE", "OVERDUE"], DONE: ["PENDING"] },
+  }),
+  capacityVersion: machine({
+    label: { zh: "产能台账版本", en: "Capacity ledger version" },
+    initial: "DRAFT",
+    statuses: {
+      DRAFT: s("草稿", "Draft", "neutral"),
+      PUBLISHED: s("已发布", "Published", "success"),
+    },
+    transitions: { DRAFT: ["PUBLISHED"] },
   }),
   patrolHit: machine({
     label: { zh: "巡检命中", en: "Patrol hit" },
@@ -268,7 +277,7 @@ export const STATUS_MACHINES = {
       PARTIAL: s("部分成功", "Partial", "warning"),
       FAILED: s("失败", "Failed", "danger"),
     },
-    transitions: { RUNNING: ["SUCCESS", "PARTIAL", "FAILED"] },
+    transitions: { RUNNING: ["SUCCESS", "PARTIAL", "FAILED"], PARTIAL: ["SUCCESS"], FAILED: ["SUCCESS", "PARTIAL"] },
   }),
   syncRecord: machine({
     label: { zh: "同步记录", en: "Sync record" },
@@ -279,7 +288,7 @@ export const STATUS_MACHINES = {
       SKIPPED: s("跳过", "Skipped", "neutral"),
       RETRYING: s("重试中", "Retrying", "warning"),
     },
-    transitions: { FAILED: ["RETRYING", "SUCCESS"], RETRYING: ["SUCCESS", "FAILED"] },
+    transitions: { FAILED: ["RETRYING", "SUCCESS", "SKIPPED"], RETRYING: ["SUCCESS", "FAILED", "SKIPPED"] },
   }),
 } as const;
 

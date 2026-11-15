@@ -20,6 +20,7 @@ export const envSchema = z
     ANTHROPIC_API_KEY: z.string().optional(),
     AI_MODEL: z.string().default("claude-opus-5-5"),
     REDIS_URL: z.string().optional(),
+    SYNC_SECRET: z.string().min(32).optional(),
     AUTO_MIGRATE: bool,
     AUTO_SEED: bool,
   })

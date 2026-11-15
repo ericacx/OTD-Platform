@@ -295,6 +295,7 @@ export async function seedReference(db: Database): Promise<{ users: Record<strin
     { key: "patrol.schedule", value: { fullAt: "00:50", intervalHours: 2, workStart: "08:00", workEnd: "20:00" }, description: "巡检调度" },
     { key: "testing.expiringDays", value: 30, description: "报告即将过期提前天数" },
     { key: "inspection.releaseDaysBeforeExFactory", value: 15, description: "终验须在工厂交期前完成的天数" },
+    { key: "inspection.dailyLimitPerFactory", value: 5, description: "同厂同日验货款数上限" },
     { key: "ai.dailyQuotaPerUser", value: 200, description: "每人每日 AI 调用上限" },
     { key: "assistant.name", value: { zh: "OTD 助手", en: "OTD Assistant" }, description: "助手名称" },
     { key: "todo.dueSoonHours", value: 24, description: "今日到期判定" },
