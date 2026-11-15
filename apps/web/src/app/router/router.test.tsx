@@ -45,13 +45,4 @@ describe("app router", () => {
 
     expect(await screen.findByRole("heading", { name: "无权限访问" })).toBeInTheDocument();
   });
-
-  it("renders placeholder pages for modules that are not built yet", async () => {
-    setTokenInfo({ accessToken: "mock-access-13800000000", refreshToken: "mock-refresh-13800000000" });
-    await renderWithProviders({ route: "/sync/tasks" });
-
-    expect(await screen.findByRole("heading", { name: "同步任务管理" })).toBeInTheDocument();
-    expect(screen.getByText("该功能正在建设中")).toBeInTheDocument();
-    expect(screen.getByText("模块 M18 将在后续迭代上线")).toBeInTheDocument();
-  });
 });

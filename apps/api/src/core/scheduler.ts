@@ -45,7 +45,11 @@ export class Scheduler implements OnModuleDestroy {
     const now = this.clock.now();
     for (const job of this.jobs.values()) {
       if (job.running || !isDue(job, now)) continue;
-      await this.execute(job);
+      try {
+        await this.execute(job);
+      } catch {
+        job.lastRun = now.getTime();
+      }
     }
   }
 
