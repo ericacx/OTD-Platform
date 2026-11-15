@@ -4,6 +4,7 @@ import { seedAll } from "@otd/db/seed";
 import { sql } from "drizzle-orm";
 import { AccessService } from "./access/access.service.js";
 import { TokenService } from "./access/token.service.js";
+import { AiUsageRecorder } from "./ai/ai-usage.recorder.js";
 import { createAiProvider } from "./ai/ai.provider.js";
 import { AuditService } from "./audit.service.js";
 import { Clock } from "./clock.js";
@@ -53,8 +54,9 @@ export async function openDatabase(env: Env): Promise<DatabaseHandle> {
     EventBus,
     Scheduler,
     FileService,
+    AiUsageRecorder,
   ],
-  exports: [ENV, DB, DB_HANDLE, FILE_STORAGE, AI_PROVIDER, Clock, TokenService, AccessService, AuditService, NumberingService, EventBus, Scheduler, FileService],
+  exports: [ENV, DB, DB_HANDLE, FILE_STORAGE, AI_PROVIDER, Clock, TokenService, AccessService, AuditService, NumberingService, EventBus, Scheduler, FileService, AiUsageRecorder],
 })
 export class CoreModule implements OnApplicationShutdown {
   constructor(@Inject(DB_HANDLE) private readonly handle: DatabaseHandle) {}
