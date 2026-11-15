@@ -17,10 +17,11 @@ export interface TopBarProps {
   unreadCount?: number;
   commandSlot?: ReactNode;
   notificationSlot?: ReactNode;
+  searchSlot?: ReactNode;
   onToggleSidebar: () => void;
   onOpenMobileNav: () => void;
   onLocaleChange: (locale: AppLocale) => void;
-  onSearch: (keyword: string) => void;
+  onSearch?: (keyword: string) => void;
   onOpenSettings: () => void;
   onChangePassword: () => void;
   onSignOut: () => void | Promise<void>;
@@ -32,6 +33,7 @@ export function TopBar({
   unreadCount = 0,
   commandSlot,
   notificationSlot,
+  searchSlot,
   onToggleSidebar,
   onOpenMobileNav,
   onLocaleChange,
@@ -57,26 +59,28 @@ export function TopBar({
       <Button aria-label={t("NAV_OPEN")} className="md:hidden" size="icon" variant="ghost" onClick={onOpenMobileNav}>
         <Menu aria-hidden="true" className="size-4" />
       </Button>
-      <form
-        className="relative hidden w-full max-w-sm sm:block"
-        role="search"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (keyword.trim()) onSearch(keyword.trim());
-        }}
-      >
-        <Search
-          aria-hidden="true"
-          className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
-        />
-        <Input
-          aria-label={t("TOP_SEARCH")}
-          className="h-9 bg-muted pl-8"
-          placeholder={t("TOP_SEARCH")}
-          value={keyword}
-          onChange={(event) => setKeyword(event.target.value)}
-        />
-      </form>
+      {searchSlot ?? (
+        <form
+          className="relative hidden w-full max-w-sm sm:block"
+          role="search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (keyword.trim()) onSearch?.(keyword.trim());
+          }}
+        >
+          <Search
+            aria-hidden="true"
+            className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+          />
+          <Input
+            aria-label={t("TOP_SEARCH")}
+            className="h-9 bg-muted pl-8"
+            placeholder={t("TOP_SEARCH")}
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
+          />
+        </form>
+      )}
       <div className="ml-auto flex items-center gap-1.5 sm:gap-3">
         {commandSlot}
         {notificationSlot ?? (

@@ -1,0 +1,16 @@
+export type {
+  AssistantAnswer,
+  AssistantCard,
+  AssistantMessageDto,
+  AssistantProfileDto,
+  AssistantReplyDto,
+  BarCard,
+  ConversationDto,
+  HighlightCard,
+  KpisCard,
+  LineCard,
+  PageContext,
+  ProposalDto,
+  TableCard,
+  TimelineCard,
+} from "@otd/contracts/assistant";

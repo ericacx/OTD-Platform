@@ -1,17 +1,20 @@
 import { preferencesSchema } from "@otd/contracts/auth";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 
 import { useAuth } from "@/app/providers/auth-provider";
 import { AppShell } from "@/components/layout/app-shell";
 import { AssistantFab } from "@/components/layout/assistant-fab";
 import { SettingsDialog } from "@/components/layout/settings-dialog";
+import { AssistantDrawer } from "@/features/assistant/components/assistant-drawer";
 import { useUpdatePreferencesMutation } from "@/features/auth/auth.mutations";
 import { ChangePasswordDialog } from "@/features/auth/components/change-password-dialog";
+import { GlobalSearchBox } from "@/features/mainline/components/global-search-box";
 import { NotificationBell } from "@/features/notification/components/notification-bell";
 import { supportedLocales, type AppLocale } from "@/lib/i18n/local-backend";
 import { isHexColor, isThemeId } from "@/lib/theme/theme";
+import { usePageDocStore } from "@/stores/page-doc.store";
 import { selectPreferencesSnapshot, usePreferencesStore, type PreferencesSnapshot } from "@/stores/preferences.store";
 
 import { CommandPaletteContainer } from "./command-palette-container";
@@ -39,6 +42,9 @@ function fromServer(raw: Record<string, unknown>, locale: string): Partial<Prefe
 export function AppShellRoute() {
   const { i18n, t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
+  const pageDoc = usePageDocStore((state) => state.doc);
+  const [assistantOpen, setAssistantOpen] = useState(false);
   const { logout, user } = useAuth();
   const prefs = usePreferencesStore();
   const updatePreferences = useUpdatePreferencesMutation();
@@ -79,7 +85,12 @@ export function AppShellRoute() {
     () => buildNavItems(user?.permissions ?? [], i18n.language),
     [user?.permissions, i18n.language],
   );
-  const assistantVisible = prefs.assistant.visible && Boolean(user?.permissions.includes("assistant.chat.use"));
+  const assistantAllowed = Boolean(user?.permissions.includes("assistant.chat.use"));
+  const onAssistantPage = location.pathname === "/assistant" || location.pathname.startsWith("/assistant/");
+  const assistantVisible = prefs.assistant.visible && assistantAllowed && !onAssistantPage;
+  const assistantContext = pageDoc
+    ? { path: location.pathname, docType: pageDoc.docType, docId: pageDoc.docId, docNo: pageDoc.docNo }
+    : { path: location.pathname };
 
   const changeLocale = (next: AppLocale) => {
     prefs.setLocale(next);
@@ -96,10 +107,18 @@ export function AppShellRoute() {
       mobileNavOpen={mobileNavOpen}
       navItems={navItems}
       notificationSlot={<NotificationBell />}
+      searchSlot={<GlobalSearchBox className="hidden w-full max-w-sm sm:block" />}
       overlay={
         <>
           {assistantVisible ? (
-            <AssistantFab label={t("ASSISTANT_NAME")} size={prefs.assistant.size} to="/assistant" />
+            <AssistantFab
+              label={t("ASSISTANT_NAME")}
+              size={prefs.assistant.size}
+              onClick={() => setAssistantOpen(true)}
+            />
+          ) : null}
+          {assistantAllowed && !onAssistantPage ? (
+            <AssistantDrawer context={assistantContext} open={assistantOpen} onOpenChange={setAssistantOpen} />
           ) : null}
           <SettingsDialog
             assistantName={t("ASSISTANT_NAME")}
@@ -125,7 +144,6 @@ export function AppShellRoute() {
       onLocaleChange={changeLocale}
       onMobileNavChange={setMobileNavOpen}
       onOpenSettings={() => setSettingsOpen(true)}
-      onSearch={(keyword) => void navigate(`/orders?keyword=${encodeURIComponent(keyword)}`)}
       onSignOut={async () => {
         await logout();
         void navigate("/login", { replace: true });
