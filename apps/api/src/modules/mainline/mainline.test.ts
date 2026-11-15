@@ -182,6 +182,9 @@ describe("mainline · demo seed smoke", () => {
     const inProduction = list.items.find((i: { poNo: string }) => i.poNo === "PO0009631");
     const detail = (await admin.get(`/orders/${inProduction.id}`)).body.data;
     expect(detail).toMatchObject({ status: "IN_PRODUCTION", revision: 2, stageIndex: 3 });
+    const mrnFlow = (await t.db.select().from(customerFlows).where(eq(customerFlows.customerId, t.refs.customers.MRN!)))[0];
+    expect(detail.flowVersionId).toBe(mrnFlow?.currentVersionId ?? null);
+    expect(mrnFlow?.currentVersionId).toBeTruthy();
     expect(detail.revisions[0]).toMatchObject({ revision: 1, note: "客户追加 600 双（Rev.2）" });
     expect(detail.factoryReplies.map((r: { versionNo: number }) => r.versionNo)).toEqual([2, 1]);
     expect(detail.production[0].completionRate).toBe(0.12);

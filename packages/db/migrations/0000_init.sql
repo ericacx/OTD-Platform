@@ -74,6 +74,7 @@ CREATE TABLE "orgs" (
 	"name" text NOT NULL,
 	"name_en" text,
 	"type" text NOT NULL,
+	"function" text DEFAULT 'SALES' NOT NULL,
 	"parent_id" uuid,
 	"path" text NOT NULL,
 	"leader_id" uuid,
@@ -314,7 +315,12 @@ CREATE TABLE "seasons" (
 	"code" text PRIMARY KEY NOT NULL,
 	"label" jsonb NOT NULL,
 	"start_date" date,
-	"end_date" date
+	"end_date" date,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"created_by" uuid,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_by" uuid,
+	"version" integer DEFAULT 1 NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "test_agencies" (
@@ -337,6 +343,7 @@ CREATE TABLE "customer_flow_versions" (
 	"customer_id" uuid NOT NULL,
 	"version_no" integer NOT NULL,
 	"snapshot" jsonb NOT NULL,
+	"summary" jsonb,
 	"note" text,
 	"published_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"published_by" uuid
@@ -364,6 +371,7 @@ CREATE TABLE "rule_packs" (
 	"name_en" text,
 	"customer_id" uuid,
 	"params" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"description" text,
 	"enabled" boolean DEFAULT true NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"created_by" uuid,
@@ -378,9 +386,13 @@ CREATE TABLE "service_items" (
 	"code" text NOT NULL,
 	"name" text NOT NULL,
 	"name_en" text,
+	"description" text,
+	"department" text,
+	"requires_customer_confirm" boolean DEFAULT false NOT NULL,
 	"effects" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"params_schema" jsonb,
 	"sort" integer DEFAULT 0 NOT NULL,
+	"deleted_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"created_by" uuid,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -398,6 +410,7 @@ CREATE TABLE "service_modules" (
 	"sort" integer DEFAULT 0 NOT NULL,
 	"has_page" boolean DEFAULT true NOT NULL,
 	"description" text,
+	"deleted_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"created_by" uuid,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -417,6 +430,8 @@ CREATE TABLE "handover_packages" (
 	"frozen_at" timestamp with time zone,
 	"completed_by" uuid,
 	"snapshot" jsonb,
+	"change_log" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"collecting_since" timestamp with time zone DEFAULT now() NOT NULL,
 	"owner_id" uuid NOT NULL,
 	"org_id" uuid NOT NULL,
 	"customer_id" uuid NOT NULL,
@@ -469,6 +484,8 @@ CREATE TABLE "plannings" (
 	"source_filename" text,
 	"image_file_ids" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"recognition_error" text,
+	"brief_translation" text,
+	"recognized_at" timestamp with time zone,
 	"confirmed_at" timestamp with time zone,
 	"confirmed_by" uuid,
 	"archived_at" timestamp with time zone,
@@ -517,6 +534,12 @@ CREATE TABLE "quote_rounds" (
 	"quoted_by" uuid,
 	"quoted_at" timestamp with time zone,
 	"override_approved_by" uuid,
+	"override_reason" text,
+	"cost_total" numeric(18, 4),
+	"strategy_snapshot" jsonb,
+	"pricing" jsonb,
+	"feedback_at" timestamp with time zone,
+	"feedback_note" text,
 	"note" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"created_by" uuid,
@@ -578,11 +601,15 @@ CREATE TABLE "quotes" (
 CREATE TABLE "sample_library" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"style_id" uuid NOT NULL,
+	"sample_id" uuid,
 	"round_id" uuid,
 	"kind" text NOT NULL,
 	"location" text,
 	"quantity" integer DEFAULT 1 NOT NULL,
 	"status" text DEFAULT 'IN_STOCK' NOT NULL,
+	"borrower" text,
+	"lent_at" timestamp with time zone,
+	"returned_at" timestamp with time zone,
 	"note" text,
 	"owner_id" uuid NOT NULL,
 	"org_id" uuid NOT NULL,
@@ -601,8 +628,11 @@ CREATE TABLE "sample_materials" (
 	"spec" text,
 	"quantity" numeric(14, 3),
 	"unit" text,
+	"supplier" text,
 	"arrival_date" date,
+	"arrived_at" timestamp with time zone,
 	"status" text DEFAULT 'PENDING' NOT NULL,
+	"note" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"created_by" uuid,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -637,8 +667,14 @@ CREATE TABLE "sample_rounds" (
 	"stage_entered_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"rework_count" integer DEFAULT 0 NOT NULL,
 	"due_date" date,
+	"issued_at" timestamp with time zone,
 	"approved_at" timestamp with time zone,
+	"approval_result" text,
+	"approval_date" date,
 	"approval_note" text,
+	"revise_note" text,
+	"shipment_id" uuid,
+	"shipment_doc_no" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"created_by" uuid,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -677,6 +713,7 @@ CREATE TABLE "sample_stage_logs" (
 	"left_at" timestamp with time zone,
 	"duration_hours" numeric(14, 3),
 	"location" text,
+	"factory_id" uuid,
 	"operator_id" uuid,
 	"note" text
 );
@@ -699,6 +736,7 @@ CREATE TABLE "samples" (
 	"craft_notes" text,
 	"sample_notes" text,
 	"cost_status" text,
+	"technician_id" uuid,
 	"owner_id" uuid NOT NULL,
 	"org_id" uuid NOT NULL,
 	"customer_id" uuid NOT NULL,
@@ -751,6 +789,8 @@ CREATE TABLE "test_reports" (
 	"valid_until" date NOT NULL,
 	"file_id" uuid,
 	"reuse_key" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"failed_items" text,
+	"test_request_id" uuid,
 	"owner_id" uuid NOT NULL,
 	"org_id" uuid NOT NULL,
 	"customer_id" uuid NOT NULL,
@@ -787,8 +827,12 @@ CREATE TABLE "test_requests" (
 	"status" text NOT NULL,
 	"result" text,
 	"failed_items" text,
+	"corrective_action" text,
+	"result_note" text,
+	"submitted_at" timestamp with time zone,
 	"reused_report_id" uuid,
 	"report_id" uuid,
+	"retest_of_id" uuid,
 	"owner_id" uuid NOT NULL,
 	"org_id" uuid NOT NULL,
 	"customer_id" uuid NOT NULL,
@@ -806,9 +850,11 @@ CREATE TABLE "audit_findings" (
 	"item" text NOT NULL,
 	"severity" text NOT NULL,
 	"corrective_action" text,
+	"responsible" text,
 	"due_date" date,
 	"status" text DEFAULT 'OPEN' NOT NULL,
 	"closed_at" timestamp with time zone,
+	"close_note" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"created_by" uuid,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -823,10 +869,16 @@ CREATE TABLE "bookings" (
 	"forwarder_id" uuid,
 	"carrier" text,
 	"vessel" text,
+	"voyage" text,
 	"bl_no" text,
+	"transport_mode" text,
+	"cutoff_date" date,
+	"container_type" text,
 	"etd" date,
 	"eta" date,
-	"status" text DEFAULT 'BOOKED' NOT NULL,
+	"status" text DEFAULT 'PENDING_CARRIER' NOT NULL,
+	"confirmed_at" timestamp with time zone,
+	"cancel_reason" text,
 	"note" text,
 	"owner_id" uuid NOT NULL,
 	"org_id" uuid NOT NULL,
@@ -847,6 +899,8 @@ CREATE TABLE "capacity_ledger_versions" (
 	"status" text DEFAULT 'DRAFT' NOT NULL,
 	"published_at" timestamp with time zone,
 	"published_by" uuid,
+	"window_days" integer DEFAULT 60 NOT NULL,
+	"note" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"created_by" uuid,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -870,7 +924,10 @@ CREATE TABLE "capacity_rows" (
 	"unproduced_qty" numeric(14, 3),
 	"spare_capacity" numeric(14, 3),
 	"spare_rate" numeric(9, 4),
-	"extra" jsonb DEFAULT '{}'::jsonb NOT NULL
+	"extra" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"sources" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"sort" integer DEFAULT 0 NOT NULL,
+	"version" integer DEFAULT 1 NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "cartons" (
@@ -886,6 +943,14 @@ CREATE TABLE "cartons" (
 	"carton_range" text,
 	"pack_due_date" date,
 	"status" text NOT NULL,
+	"plan_id" uuid,
+	"plan_version" integer,
+	"order_line_id" uuid,
+	"color" text,
+	"range_start" integer,
+	"range_end" integer,
+	"started_at" timestamp with time zone,
+	"packed_at" timestamp with time zone,
 	"owner_id" uuid NOT NULL,
 	"org_id" uuid NOT NULL,
 	"customer_id" uuid NOT NULL,
@@ -941,9 +1006,15 @@ CREATE TABLE "customer_orders" (
 	"source_file_id" uuid,
 	"extraction" jsonb,
 	"rule_check" jsonb,
+	"override_reason" text,
+	"unmatched_lines" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"flow_version_id" uuid,
 	"confirmed_at" timestamp with time zone,
 	"cancelled_at" timestamp with time zone,
+	"cancel_reason" text,
+	"customer_confirmed_at" timestamp with time zone,
+	"customer_confirm_method" text,
+	"customer_confirm_note" text,
 	"owner_id" uuid NOT NULL,
 	"org_id" uuid NOT NULL,
 	"customer_id" uuid NOT NULL,
@@ -964,6 +1035,7 @@ CREATE TABLE "factory_audits" (
 	"auditor" text,
 	"result" text,
 	"score" numeric(9, 4),
+	"certificate_valid_until" date,
 	"status" text NOT NULL,
 	"note" text,
 	"owner_id" uuid NOT NULL,
@@ -996,7 +1068,8 @@ CREATE TABLE "inspection_logs" (
 	"from_status" text,
 	"to_status" text,
 	"note" text,
-	"operator_id" uuid
+	"operator_id" uuid,
+	"operator_name" text
 );
 --> statement-breakpoint
 CREATE TABLE "inspections" (
@@ -1032,6 +1105,13 @@ CREATE TABLE "inspections" (
 	"released_at" timestamp with time zone,
 	"release_check" jsonb,
 	"concession" boolean DEFAULT false NOT NULL,
+	"requirements" text,
+	"concession_reason" text,
+	"cancel_reason" text,
+	"schedule_warning" text,
+	"report_file_id" uuid,
+	"released_by" uuid,
+	"rounds" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"owner_id" uuid NOT NULL,
 	"org_id" uuid NOT NULL,
 	"customer_id" uuid NOT NULL,
@@ -1048,9 +1128,11 @@ CREATE TABLE "invoices" (
 	"invoice_no" text NOT NULL,
 	"order_id" uuid,
 	"shipment_id" uuid,
+	"receivable_id" uuid,
 	"amount" numeric(18, 4) NOT NULL,
 	"currency" text NOT NULL,
 	"issued_date" date NOT NULL,
+	"note" text,
 	"owner_id" uuid NOT NULL,
 	"org_id" uuid NOT NULL,
 	"customer_id" uuid NOT NULL,
@@ -1073,6 +1155,7 @@ CREATE TABLE "ledger_tasks" (
 	"next_due_at" date,
 	"status" text NOT NULL,
 	"note" text,
+	"escalated_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"created_by" uuid,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -1111,7 +1194,10 @@ CREATE TABLE "packaging_plan_versions" (
 	"change_note" text,
 	"customer_confirmed" boolean DEFAULT false NOT NULL,
 	"changed_by" uuid,
-	"changed_at" timestamp with time zone DEFAULT now() NOT NULL
+	"changed_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"confirmed_at" timestamp with time zone,
+	"confirmed_by" text,
+	"confirm_method" text
 );
 --> statement-breakpoint
 CREATE TABLE "packaging_plans" (
@@ -1135,6 +1221,12 @@ CREATE TABLE "packaging_plans" (
 	"destination" text,
 	"requirements" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"confirmed_at" timestamp with time zone,
+	"style_id" uuid,
+	"effective_version" integer,
+	"submitted_at" timestamp with time zone,
+	"confirmed_by" text,
+	"confirm_method" text,
+	"confirm_note" text,
 	"owner_id" uuid NOT NULL,
 	"org_id" uuid NOT NULL,
 	"customer_id" uuid NOT NULL,
@@ -1181,7 +1273,8 @@ CREATE TABLE "purchase_lines" (
 	"quantity" numeric(14, 3) NOT NULL,
 	"unit" text NOT NULL,
 	"unit_price" numeric(18, 4),
-	"received_qty" numeric(14, 3) DEFAULT 0 NOT NULL
+	"received_qty" numeric(14, 3) DEFAULT 0 NOT NULL,
+	"sort" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "purchase_orders" (
@@ -1195,6 +1288,10 @@ CREATE TABLE "purchase_orders" (
 	"ordered_at" date NOT NULL,
 	"promised_date" date,
 	"note" text,
+	"delivery_place" text,
+	"received_at" date,
+	"cancelled_at" timestamp with time zone,
+	"cancel_reason" text,
 	"owner_id" uuid NOT NULL,
 	"org_id" uuid NOT NULL,
 	"customer_id" uuid NOT NULL,
@@ -1212,6 +1309,7 @@ CREATE TABLE "purchase_receipts" (
 	"line_id" uuid NOT NULL,
 	"quantity" numeric(14, 3) NOT NULL,
 	"received_at" date NOT NULL,
+	"qc_result" text,
 	"note" text,
 	"created_by" uuid,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
@@ -1224,6 +1322,7 @@ CREATE TABLE "receipts" (
 	"currency" text NOT NULL,
 	"received_at" date NOT NULL,
 	"method" text,
+	"bank_ref" text,
 	"note" text,
 	"created_by" uuid,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
@@ -1246,6 +1345,9 @@ CREATE TABLE "receivables" (
 	"status" text NOT NULL,
 	"disputed" boolean DEFAULT false NOT NULL,
 	"missing_data" boolean DEFAULT false NOT NULL,
+	"note" text,
+	"offset_target_id" uuid,
+	"overdue_notified_at" timestamp with time zone,
 	"owner_id" uuid NOT NULL,
 	"org_id" uuid NOT NULL,
 	"customer_id" uuid NOT NULL,
@@ -1263,7 +1365,8 @@ CREATE TABLE "shipment_events" (
 	"status" text NOT NULL,
 	"planned_at" date,
 	"actual_at" timestamp with time zone,
-	"note" text
+	"note" text,
+	"operator_id" uuid
 );
 --> statement-breakpoint
 CREATE TABLE "shipments" (
@@ -1281,10 +1384,13 @@ CREATE TABLE "shipments" (
 	"carton_count" integer,
 	"pairs" integer,
 	"gross_weight" numeric(14, 3),
+	"volume" numeric(14, 3),
 	"factory_id" uuid,
 	"season_code" text,
+	"inspection_id" uuid,
 	"status" text NOT NULL,
 	"signed_at" timestamp with time zone,
+	"note" text,
 	"owner_id" uuid NOT NULL,
 	"org_id" uuid NOT NULL,
 	"customer_id" uuid NOT NULL,
@@ -1439,6 +1545,14 @@ CREATE TABLE "sync_endpoints" (
 	"protocol" text NOT NULL,
 	"base_url" text,
 	"credential" jsonb,
+	"credential_updated_at" timestamp with time zone,
+	"contact" text,
+	"timeout_ms" integer DEFAULT 30000 NOT NULL,
+	"options" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"last_test_at" timestamp with time zone,
+	"last_test_ok" boolean,
+	"last_test_message" text,
+	"note" text,
 	"status" text DEFAULT 'ACTIVE' NOT NULL,
 	"owner_id" uuid,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -1454,15 +1568,18 @@ CREATE TABLE "sync_links" (
 	"object" text NOT NULL,
 	"local_id" text NOT NULL,
 	"remote_id" text NOT NULL,
+	"last_hash" text,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "sync_links_endpoint_id_object_local_id_pk" PRIMARY KEY("endpoint_id","object","local_id")
 );
 --> statement-breakpoint
 CREATE TABLE "sync_mappings" (
 	"id" uuid PRIMARY KEY NOT NULL,
+	"name" text DEFAULT '' NOT NULL,
 	"endpoint_id" uuid NOT NULL,
 	"object" text NOT NULL,
 	"direction" text NOT NULL,
+	"key_field" text,
 	"fields" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"code_maps" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"enabled" boolean DEFAULT true NOT NULL,
@@ -1479,6 +1596,7 @@ CREATE TABLE "sync_records" (
 	"run_id" uuid NOT NULL,
 	"batch_id" uuid,
 	"record_key" text NOT NULL,
+	"local_id" text,
 	"field" text,
 	"error_type" text,
 	"error_message" text,
@@ -1502,6 +1620,8 @@ CREATE TABLE "sync_runs" (
 	"failed" integer DEFAULT 0 NOT NULL,
 	"skipped" integer DEFAULT 0 NOT NULL,
 	"steps" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"duration_ms" integer,
+	"error" text,
 	"operator_id" uuid
 );
 --> statement-breakpoint
@@ -1518,6 +1638,7 @@ CREATE TABLE "sync_tasks" (
 	"trigger" text NOT NULL,
 	"frequency" text,
 	"interval_minutes" integer,
+	"batch_size" integer DEFAULT 100 NOT NULL,
 	"owner_id" uuid,
 	"last_run_at" timestamp with time zone,
 	"next_run_at" timestamp with time zone,
@@ -1579,7 +1700,7 @@ CREATE INDEX "plannings_owner_id_org_id_customer_id_index" ON "plannings" USING 
 CREATE INDEX "plannings_style_id_index" ON "plannings" USING btree ("style_id");--> statement-breakpoint
 CREATE INDEX "quote_cost_items_quote_id_index" ON "quote_cost_items" USING btree ("quote_id");--> statement-breakpoint
 CREATE INDEX "quote_rounds_quote_id_index" ON "quote_rounds" USING btree ("quote_id");--> statement-breakpoint
-CREATE INDEX "quotes_style_id_index" ON "quotes" USING btree ("style_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "quotes_style_id_index" ON "quotes" USING btree ("style_id");--> statement-breakpoint
 CREATE INDEX "quotes_owner_id_org_id_customer_id_index" ON "quotes" USING btree ("owner_id","org_id","customer_id");--> statement-breakpoint
 CREATE INDEX "sample_library_style_id_index" ON "sample_library" USING btree ("style_id");--> statement-breakpoint
 CREATE INDEX "sample_materials_sample_id_index" ON "sample_materials" USING btree ("sample_id");--> statement-breakpoint
@@ -1588,6 +1709,7 @@ CREATE UNIQUE INDEX "sample_rounds_sample_id_round_no_index" ON "sample_rounds" 
 CREATE INDEX "sample_rounds_status_index" ON "sample_rounds" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "sample_shipments_owner_id_org_id_customer_id_index" ON "sample_shipments" USING btree ("owner_id","org_id","customer_id");--> statement-breakpoint
 CREATE INDEX "sample_stage_logs_round_id_index" ON "sample_stage_logs" USING btree ("round_id");--> statement-breakpoint
+CREATE INDEX "sample_stage_logs_stage_left_at_index" ON "sample_stage_logs" USING btree ("stage","left_at");--> statement-breakpoint
 CREATE INDEX "samples_style_id_index" ON "samples" USING btree ("style_id");--> statement-breakpoint
 CREATE INDEX "samples_owner_id_org_id_customer_id_index" ON "samples" USING btree ("owner_id","org_id","customer_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "styles_customer_id_style_no_index" ON "styles" USING btree ("customer_id","style_no");--> statement-breakpoint
@@ -1599,6 +1721,7 @@ CREATE INDEX "test_requests_status_index" ON "test_requests" USING btree ("statu
 CREATE INDEX "test_requests_owner_id_org_id_customer_id_index" ON "test_requests" USING btree ("owner_id","org_id","customer_id");--> statement-breakpoint
 CREATE INDEX "audit_findings_audit_id_index" ON "audit_findings" USING btree ("audit_id");--> statement-breakpoint
 CREATE INDEX "bookings_order_id_index" ON "bookings" USING btree ("order_id");--> statement-breakpoint
+CREATE INDEX "bookings_status_etd_index" ON "bookings" USING btree ("status","etd");--> statement-breakpoint
 CREATE INDEX "capacity_rows_version_id_ledger_index" ON "capacity_rows" USING btree ("version_id","ledger");--> statement-breakpoint
 CREATE INDEX "cartons_order_id_index" ON "cartons" USING btree ("order_id");--> statement-breakpoint
 CREATE INDEX "collection_logs_receivable_id_index" ON "collection_logs" USING btree ("receivable_id");--> statement-breakpoint
@@ -1612,6 +1735,7 @@ CREATE INDEX "inspection_logs_inspection_id_index" ON "inspection_logs" USING bt
 CREATE INDEX "inspections_order_id_index" ON "inspections" USING btree ("order_id");--> statement-breakpoint
 CREATE INDEX "inspections_status_index" ON "inspections" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "inspections_owner_id_org_id_customer_id_index" ON "inspections" USING btree ("owner_id","org_id","customer_id");--> statement-breakpoint
+CREATE INDEX "inspections_factory_id_planned_date_index" ON "inspections" USING btree ("factory_id","planned_date");--> statement-breakpoint
 CREATE INDEX "invoices_order_id_index" ON "invoices" USING btree ("order_id");--> statement-breakpoint
 CREATE INDEX "order_lines_order_id_index" ON "order_lines" USING btree ("order_id");--> statement-breakpoint
 CREATE INDEX "order_lines_style_id_index" ON "order_lines" USING btree ("style_id");--> statement-breakpoint
@@ -1642,6 +1766,8 @@ CREATE INDEX "patrol_hits_status_light_index" ON "patrol_hits" USING btree ("sta
 CREATE INDEX "patrol_hits_fingerprint_index" ON "patrol_hits" USING btree ("fingerprint");--> statement-breakpoint
 CREATE INDEX "sync_batches_run_id_index" ON "sync_batches" USING btree ("run_id");--> statement-breakpoint
 CREATE INDEX "sync_records_task_id_status_index" ON "sync_records" USING btree ("task_id","status");--> statement-breakpoint
-CREATE INDEX "sync_runs_task_id_index" ON "sync_runs" USING btree ("task_id");--> statement-breakpoint
+CREATE INDEX "sync_records_status_next_retry_at_index" ON "sync_records" USING btree ("status","next_retry_at");--> statement-breakpoint
+CREATE INDEX "sync_records_batch_id_index" ON "sync_records" USING btree ("batch_id");--> statement-breakpoint
+CREATE INDEX "sync_runs_task_id_started_at_index" ON "sync_runs" USING btree ("task_id","started_at");--> statement-breakpoint
 CREATE INDEX "todos_assignee_id_status_due_at_index" ON "todos" USING btree ("assignee_id","status","due_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "todos_fingerprint_index" ON "todos" USING btree ("fingerprint");

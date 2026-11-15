@@ -18,7 +18,6 @@ import {
   type shipmentCreateSchema,
   type shipmentListQuerySchema,
   type shipmentSignSchema,
-  BOOKING_TRANSITIONS,
   SHIPMENT_STATUSES,
   shipmentErrors,
 } from "@otd/contracts/shipment";
@@ -183,7 +182,7 @@ export class ShipmentService implements OnModuleInit {
     const row = await inTransaction(this.db, this.events, async (tx, emit) => {
       const before = await this.loadBooking(ctx, id, tx);
       if (before.version !== version) throw versionConflict();
-      if (!(BOOKING_TRANSITIONS[before.status as BookingStatus] ?? []).includes(to)) throw illegalTransition(before.status, to === "CONFIRMED" ? "confirm" : "cancel");
+      if (!canTransition("booking", before.status as BookingStatus, to)) throw illegalTransition(before.status, to === "CONFIRMED" ? "confirm" : "cancel");
       if (to === "CANCELLED") {
         const used = await tx.select({ id: shipments.id }).from(shipments).where(and(eq(shipments.bookingId, id), ne(shipments.status, "BOOKED")));
         if (used.length) throw new AppError(shipmentErrors.SHIPMENT_BOOKING_IN_USE);

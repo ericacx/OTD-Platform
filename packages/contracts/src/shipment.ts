@@ -12,15 +12,6 @@ export const shipmentErrors = defineErrors({
 export const BOOKING_STATUSES = ["PENDING_CARRIER", "CONFIRMED", "CANCELLED"] as const;
 export const bookingStatusSchema = z.enum(BOOKING_STATUSES);
 export type BookingStatus = z.infer<typeof bookingStatusSchema>;
-export const BOOKING_STATUS_LABELS: Record<BookingStatus, { zh: string; en: string }> = {
-  PENDING_CARRIER: { zh: "待船司确认", en: "Awaiting carrier" },
-  CONFIRMED: { zh: "订舱确认", en: "Confirmed" },
-  CANCELLED: { zh: "已取消", en: "Cancelled" },
-};
-export const BOOKING_TRANSITIONS: Partial<Record<BookingStatus, readonly BookingStatus[]>> = {
-  PENDING_CARRIER: ["CONFIRMED", "CANCELLED"],
-  CONFIRMED: ["CANCELLED"],
-};
 
 export const TRANSPORT_MODES = ["OCEAN", "AIR", "RAIL", "EXPRESS"] as const;
 export const transportModeSchema = z.enum(TRANSPORT_MODES);

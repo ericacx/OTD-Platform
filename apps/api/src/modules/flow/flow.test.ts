@@ -64,7 +64,7 @@ describe("flow config (demo seed)", () => {
     expect(bby.gateConditions.G1).not.toContain("testReportValid");
     expect((await config.enabledNodes(t.refs.customers.MRN!)).nodes).not.toContain("N04");
     expect(await config.rulePack("RELEASE", t.refs.customers.NSR!)).toMatchObject({ sameFactorySameDayLimit: 5, mergeReport: true, releaseDaysBeforeExFactory: 15 });
-    expect(await config.rulePack("RELEASE", t.refs.customers.MPT!)).toMatchObject({ sameFactorySameDayLimit: 6, mergeReport: false });
+    expect(await config.rulePack("RELEASE", t.refs.customers.MPT!)).toMatchObject({ sameFactorySameDayLimit: 5, mergeReport: false });
 
     const diff = (await admin.get(`/flow/customers/${t.refs.customers.NSR}/diff`)).body.data;
     expect(diff.identical).toBe(false);

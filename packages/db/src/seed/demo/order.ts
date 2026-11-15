@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { customerOrders, factoryReplies, orderLines, orderStageLogs, poRevisions, productionProgress, styles, todos } from "../../schema/index.js";
+import { customerFlows, customerOrders, factoryReplies, orderLines, orderStageLogs, poRevisions, productionProgress, styles, todos } from "../../schema/index.js";
 import { DEMO_USERS } from "../reference.js";
 import type { SeedContext } from "./context.js";
 
@@ -129,7 +129,10 @@ async function seedOrderHistory(ctx: SeedContext, o: DemoOrder, orderId: string,
     await ctx.db.update(customerOrders).set({ revision: 2, revisionDate: ctx.day(revised.offset) }).where(eq(customerOrders.id, orderId));
     logs.push({ status: "IN_PRODUCTION", action: `PO 改版 Rev.2：总双数 ${revised.previousPairs.toLocaleString("en-US")} → ${o.pairs.toLocaleString("en-US")}`, at: ctx.at(revised.offset, 14), operatorId: ownerId, operatorName: owner, note: revised.note });
   }
-  if (rank >= 1) await ctx.db.update(customerOrders).set({ customerConfirmedAt: ctx.at(confirmOffset - 1, 15), customerConfirmMethod: "EMAIL" }).where(eq(customerOrders.id, orderId));
+  if (rank >= 1) {
+    const flow = (await ctx.db.select({ v: customerFlows.currentVersionId }).from(customerFlows).where(eq(customerFlows.customerId, ctx.customer(o.customer))))[0];
+    await ctx.db.update(customerOrders).set({ customerConfirmedAt: ctx.at(confirmOffset - 1, 15), customerConfirmMethod: "EMAIL", flowVersionId: flow?.v ?? null }).where(eq(customerOrders.id, orderId));
+  }
 
   logs.sort((a, b) => a.at.getTime() - b.at.getTime());
   for (const l of logs) await ctx.db.insert(orderStageLogs).values({ orderId, status: l.status, action: l.action, note: l.note ?? null, at: l.at, operatorId: l.operatorId, operatorName: l.operatorName });

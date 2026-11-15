@@ -29,31 +29,20 @@ async function factoryId(code: string): Promise<string> {
 }
 
 let poSeq = 0;
-async function makeOrder(opts: { customer?: string; styleNo?: string; owner?: keyof typeof PHONES; org?: string; factory?: string; dueOffset?: number; sizes?: string[] } = {}) {
-  const { customerOrders, orderLines } = await db();
+async function makeOrder(opts: { customer?: string; owner?: keyof typeof PHONES; org?: string; factory?: string; dueOffset?: number; sizes?: string[] } = {}) {
+  const { customerOrders, orderLines, styles } = await db();
   const customer = opts.customer ?? "MRN";
-  const sid = await styleId(customer, opts.styleNo ?? "11151");
+  const own = { ownerId: t.refs.users[PHONES[opts.owner ?? "sales"]]!, orgId: t.refs.orgs[opts.org ?? "ORG003"]!, customerId: t.refs.customers[customer]! };
+  const seq = String(++poSeq).padStart(4, "0");
+  const sid = (await t.db.insert(styles).values({ styleNo: `T${seq}`, nameZh: `测试袜 ${seq}`, nameEn: `Test Sock ${seq}`, seasonCode: "HO26", ...own }).returning())[0]!.id;
   const sizes = opts.sizes ?? ["S", "M", "L"];
   const order = (
     await t.db
       .insert(customerOrders)
-      .values({
-        poNo: `PO-T${String(++poSeq).padStart(4, "0")}`,
-        currency: "EUR",
-        customerDueDate: addDays(TODAY, opts.dueOffset ?? 40),
-        factoryId: await factoryId(opts.factory ?? "NH5"),
-        totalPairs: 3000,
-        status: "IN_PRODUCTION",
-        ownerId: t.refs.users[PHONES[opts.owner ?? "sales"]]!,
-        orgId: t.refs.orgs[opts.org ?? "ORG003"]!,
-        customerId: t.refs.customers[customer]!,
-      })
+      .values({ poNo: `PO-T${seq}`, currency: "EUR", customerDueDate: addDays(TODAY, opts.dueOffset ?? 40), factoryId: await factoryId(opts.factory ?? "NH5"), totalPairs: 3000, status: "IN_PRODUCTION", ...own })
       .returning()
   )[0]!;
   for (const size of sizes) await t.db.insert(orderLines).values({ orderId: order.id, styleId: sid, color: "Black", size, sku: `${customer}-BLK-${size}`, quantity: 1000, unitPrice: 1.86 });
-  const { testReports, testReportLinks, eq } = await db();
-  await t.db.delete(testReportLinks).where(eq(testReportLinks.styleId, sid));
-  await t.db.delete(testReports).where(eq(testReports.styleId, sid));
   return { order, styleId: sid, sizes };
 }
 
@@ -72,14 +61,15 @@ async function readyReports(sid: string, validUntil: string, result = "PASS", ba
   return report;
 }
 
-async function readyPacking(orderId: string, sid: string, sizes: string[], status = "CONFIRMED", customer = "MRN") {
-  const { packagingPlans, cartons } = await db();
+async function readyPacking(orderId: string, sid: string, sizes: string[], status = "CONFIRMED", customer = "MRN", effectiveVersion: number | null = status === "CONFIRMED" ? 3 : null) {
+  const { packagingPlans, cartons, orderLines, and, eq } = await db();
   docSeq += 1;
   const own = { ownerId: t.refs.users[PHONES.sales]!, orgId: t.refs.orgs.ORG003!, customerId: t.refs.customers[customer]! };
-  await t.db.insert(packagingPlans).values({ docNo: `PK-T-${docSeq}`, orderId, title: "包装方案", currentVersion: 3, status, ...own });
+  await t.db.insert(packagingPlans).values({ docNo: `PK-T-${docSeq}`, orderId, title: "包装方案", currentVersion: 3, effectiveVersion, status, ...own });
   for (const size of sizes) {
     docSeq += 1;
-    await t.db.insert(cartons).values({ docNo: `CT-T-${docSeq}`, orderId, styleId: sid, size, pairs: 1000, pairsPerCarton: 50, cartonCount: 20, status: "PACKED", ...own });
+    const line = (await t.db.select().from(orderLines).where(and(eq(orderLines.orderId, orderId), eq(orderLines.styleId, sid), eq(orderLines.size, size))))[0]!;
+    await t.db.insert(cartons).values({ docNo: `CT-T-${docSeq}`, orderId, styleId: sid, orderLineId: line.id, color: line.color, size, pairs: 1000, pairsPerCarton: 50, cartonCount: 20, status: "PACKED", ...own });
   }
 }
 
@@ -214,14 +204,20 @@ describe("inspections M10", () => {
     expect(check.items[1].detail).toContain(linked.agencyReportNo);
     expect(check.items[2].detail).toContain("待客户确认");
 
-    await readyPacking(order.id, sid, sizes.slice(0, 2), "CONFIRMED");
+    await readyPacking(order.id, sid, sizes.slice(0, 2), "DRAFT", "MRN", 2);
     check = (await quality.get(`/inspections/${insp.id}/release-check`)).body.data;
     expect(check.items[2].passed).toBe(false);
-    expect(check.items[2].detail).toContain("装箱单未覆盖 #11151 Black/L");
+    expect(check.items[2].detail).toMatch(/^装箱单未覆盖 #T\d{4} Black\/L$/);
 
     const blocked = await quality.post(`/inspections/${insp.id}/release`, { version: insp.version });
     expect(blocked.body.errcode).toBe("FLOW_GATE_BLOCKED");
     expect(blocked.body.errParams?.missingKeys).toEqual(["包装方案已确认且装箱齐套"]);
+
+    await readyPacking(order.id, sid, sizes.slice(2), "DRAFT", "MRN", 2);
+    check = (await quality.get(`/inspections/${insp.id}/release-check`)).body.data;
+    expect(check.items[2].passed).toBe(true);
+    expect(check.items[2].detail).toMatch(/^PK-T-\d+ v2 · /);
+    expect(check.passed).toBe(true);
   });
 
   it("only releases final inspections; IPI / DPI just record results", async () => {
@@ -316,7 +312,7 @@ describe("inspections M10", () => {
     const sales2 = await t.as("sales2");
     const quality = await t.as("quality");
     const planner = await t.as("planner");
-    const { order, styleId: sid, sizes } = await makeOrder({ customer: "BBY", styleNo: "11152", owner: "sales2", factory: "DC1" });
+    const { order, styleId: sid, sizes } = await makeOrder({ customer: "BBY", owner: "sales2", factory: "DC1" });
     const dpi = await sales2.post("/inspections", { orderId: order.id, styleId: sid, stage: "DPI" });
     expect(dpi.body.errcode).toBe("INSPECTION_STAGE_NOT_ENABLED");
     const fri = (await sales2.post("/inspections", { orderId: order.id, styleId: sid, stage: "FRI" })).body.data;

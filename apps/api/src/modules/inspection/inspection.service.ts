@@ -517,12 +517,18 @@ export class InspectionService implements OnModuleInit {
 
   private async checkPacking(orderId: string, lines: (typeof orderLines.$inferSelect)[], styleNo: Map<string, string>, db: DbOrTx): Promise<CheckResult> {
     const def = G2[2];
-    const plan = (await db.select().from(packagingPlans).where(eq(packagingPlans.orderId, orderId)).orderBy(desc(packagingPlans.createdAt)))[0];
-    if (!plan) return { key: def.key, label: def.label, passed: false, detail: "订单尚未建立包装方案" };
-    const planLabel = `${plan.docNo} v${plan.currentVersion}`;
-    if (plan.status !== "CONFIRMED") return { key: def.key, label: def.label, passed: false, detail: `${planLabel} ${statusLabel("packagingPlan", plan.status).zh}，未经客户确认` };
+    const plans = await db.select().from(packagingPlans).where(eq(packagingPlans.orderId, orderId)).orderBy(desc(packagingPlans.createdAt));
+    if (!plans.length) return { key: def.key, label: def.label, passed: false, detail: "订单尚未建立包装方案" };
+    const plan = plans.find((p) => p.effectiveVersion !== null || p.status === "CONFIRMED");
+    if (!plan) {
+      const latest = plans[0]!;
+      return { key: def.key, label: def.label, passed: false, detail: `${latest.docNo} v${latest.currentVersion} ${statusLabel("packagingPlan", latest.status).zh}，尚无客户确认的生效版本` };
+    }
+    const planLabel = `${plan.docNo} v${plan.effectiveVersion ?? plan.currentVersion}`;
     const boxes = await db.select().from(cartons).where(eq(cartons.orderId, orderId));
-    const missing = lines.filter((l) => !boxes.some((c) => (c.styleId === l.styleId || (!!c.customerSku && c.customerSku === l.sku)) && (!l.size || c.size === l.size)));
+    const covers = (c: (typeof boxes)[number], l: (typeof lines)[number]) =>
+      c.orderLineId ? c.orderLineId === l.id : (c.styleId === l.styleId || (!!c.customerSku && c.customerSku === l.sku)) && (!l.size || c.size === l.size) && (!l.color || !c.color || c.color === l.color);
+    const missing = lines.filter((l) => !boxes.some((c) => covers(c, l)));
     if (missing.length) {
       const sample = missing
         .slice(0, 3)
